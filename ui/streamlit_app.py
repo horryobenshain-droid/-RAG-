@@ -98,9 +98,17 @@ def render_sources(sources: list[dict[str, Any]]) -> None:
             source_id = source.get("source_id", "?")
             file_name = source.get("file_name", "未知文件")
             page = f"第 {source['page']} 页" if source.get("page") else "无页码"
+            line_range = _line_range(source)
+            symbol = source.get("symbol_name")
             score = source.get("score")
-            score_text = f"相关度 {score:.2f}" if isinstance(score, int | float) else "相关度未知"
-            st.markdown(f"**[{source_id}] {file_name} · {page} · {score_text}**")
+            vector_score = source.get("vector_score")
+            keyword_score = source.get("keyword_score")
+            score_text = _score_text(score, vector_score, keyword_score)
+            location = " · ".join(item for item in [file_name, symbol, page, line_range] if item)
+            st.markdown(f"**[{source_id}] {location} · {score_text}**")
+            matched_keywords = source.get("matched_keywords", [])
+            if matched_keywords:
+                st.caption(f"命中词：{', '.join(matched_keywords)}")
             st.caption(source.get("preview", ""))
 
 
@@ -122,6 +130,29 @@ def render_answer_metadata(payload: dict[str, Any]) -> None:
 
     if metadata:
         st.caption(" · ".join(metadata))
+
+
+def _line_range(source: dict[str, Any]) -> str | None:
+    start_line = source.get("start_line")
+    end_line = source.get("end_line")
+    if start_line and end_line:
+        return f"行 {start_line}-{end_line}"
+    return None
+
+
+def _score_text(
+    score: object,
+    vector_score: object,
+    keyword_score: object,
+) -> str:
+    parts = []
+    if isinstance(score, int | float):
+        parts.append(f"综合 {score:.2f}")
+    if isinstance(vector_score, int | float):
+        parts.append(f"向量 {vector_score:.2f}")
+    if isinstance(keyword_score, int | float):
+        parts.append(f"关键词 {keyword_score:.2f}")
+    return " / ".join(parts) if parts else "相关度未知"
 
 
 st.set_page_config(page_title="本地 RAG 知识库", layout="wide")
