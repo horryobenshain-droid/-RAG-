@@ -4,6 +4,14 @@
 
 - Add `OPENAI_BASE_URL` support for OpenAI-compatible gateway providers.
 
+## 0.3.0 - 2026-06-11
+
+- Add strict and augmented answer modes.
+- Return answer basis metadata: knowledge base, model prior or mixed.
+- Add local HuggingFace embedding provider with `BAAI/bge-small-zh-v1.5`.
+- Add Streamlit answer mode controls.
+- Add tests for answer modes and local embedding provider.
+
 ## 0.2.0 - 2026-06-11
 
 - Add document registry metadata with document ID, file hash, model config and ingest time.
