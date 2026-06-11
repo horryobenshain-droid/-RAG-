@@ -1,9 +1,24 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from app.api.schemas import ChatRequest, ChatResponse, Source, UploadResponse
+from app.api.schemas import (
+    ChatRequest,
+    ChatResponse,
+    ClearKnowledgeBaseResponse,
+    DeleteDocumentResponse,
+    DocumentListResponse,
+    DocumentRecordResponse,
+    Source,
+    UploadResponse,
+)
 from app.core.config import Settings, get_settings
 from app.core.files import sanitize_filename, save_upload_file
-from app.rag.service import answer_question, ingest_file
+from app.rag.service import (
+    answer_question,
+    clear_knowledge_base,
+    delete_document,
+    ingest_file,
+    list_documents,
+)
 
 router = APIRouter(prefix="/api", tags=["rag"])
 
@@ -59,6 +74,47 @@ def chat(
         for index, document in enumerate(documents, start=1)
     ]
     return ChatResponse(answer=answer, sources=sources)
+
+
+@router.get("/documents", response_model=DocumentListResponse)
+def list_indexed_documents(
+    include_deleted: bool = False,
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> DocumentListResponse:
+    documents = [
+        DocumentRecordResponse(**record)
+        for record in list_documents(settings, include_deleted=include_deleted)
+    ]
+    return DocumentListResponse(documents=documents, total=len(documents))
+
+
+@router.delete("/documents/{document_id}", response_model=DeleteDocumentResponse)
+def delete_indexed_document(
+    document_id: str,
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> DeleteDocumentResponse:
+    deleted, chunks_deleted = delete_document(document_id, settings)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="未找到对应文档。")
+
+    return DeleteDocumentResponse(
+        document_id=document_id,
+        deleted=True,
+        chunks_deleted=chunks_deleted,
+        message="文档及其向量索引已删除。",
+    )
+
+
+@router.delete("/documents", response_model=ClearKnowledgeBaseResponse)
+def clear_indexed_documents(
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> ClearKnowledgeBaseResponse:
+    documents_deleted, chunks_deleted = clear_knowledge_base(settings)
+    return ClearKnowledgeBaseResponse(
+        documents_deleted=documents_deleted,
+        chunks_deleted=chunks_deleted,
+        message="知识库已清空。",
+    )
 
 
 def _human_page(page: object) -> int | None:

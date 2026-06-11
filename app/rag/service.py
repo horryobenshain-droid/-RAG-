@@ -9,7 +9,13 @@ from app.core.registry import DocumentRecord, DocumentRegistry, utc_now
 from app.loaders.local_loader import load_local_file
 from app.rag.llm import generate_answer
 from app.rag.splitter import split_documents
-from app.rag.vectorstore import add_documents, similarity_search
+from app.rag.vectorstore import (
+    add_documents,
+    count_vectors,
+    delete_document_vectors,
+    reset_vectorstore,
+    similarity_search,
+)
 
 
 class IngestResult:
@@ -82,6 +88,26 @@ def answer_question(question: str, top_k: int, settings: Settings) -> tuple[str,
     documents = similarity_search(question, top_k, settings)
     answer = generate_answer(question, documents, settings)
     return answer, documents
+
+
+def list_documents(settings: Settings, include_deleted: bool = False) -> list[dict[str, object]]:
+    registry = DocumentRegistry(settings.registry_path)
+    return registry.list_documents(include_deleted=include_deleted)
+
+
+def delete_document(document_id: str, settings: Settings) -> tuple[bool, int]:
+    deleted_vectors = delete_document_vectors(document_id, settings)
+    registry = DocumentRegistry(settings.registry_path)
+    registry_changed = registry.mark_deleted(document_id)
+    return registry_changed or deleted_vectors > 0, deleted_vectors
+
+
+def clear_knowledge_base(settings: Settings) -> tuple[int, int]:
+    registry = DocumentRegistry(settings.registry_path)
+    active_documents = registry.clear()
+    chunks_deleted = count_vectors(settings)
+    reset_vectorstore(settings)
+    return active_documents, chunks_deleted
 
 
 def _embedding_model_name(settings: Settings) -> str:

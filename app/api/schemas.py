@@ -27,3 +27,36 @@ class Source(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     sources: list[Source]
+
+
+class DocumentRecordResponse(BaseModel):
+    document_id: str
+    original_file_name: str
+    stored_file_name: str
+    extension: str
+    file_hash: str
+    chunks_indexed: int
+    embedding_provider: str
+    embedding_model: str
+    llm_provider: str
+    status: str
+    created_at: str
+    deleted_at: str | None = None
+
+
+class DocumentListResponse(BaseModel):
+    documents: list[DocumentRecordResponse]
+    total: int
+
+
+class DeleteDocumentResponse(BaseModel):
+    document_id: str
+    deleted: bool
+    chunks_deleted: int
+    message: str
+
+
+class ClearKnowledgeBaseResponse(BaseModel):
+    documents_deleted: int
+    chunks_deleted: int
+    message: str
