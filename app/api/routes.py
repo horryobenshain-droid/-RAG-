@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.api.schemas import ChatRequest, ChatResponse, Source, UploadResponse
 from app.core.config import Settings, get_settings
-from app.core.files import save_upload_file
+from app.core.files import sanitize_filename, save_upload_file
 from app.rag.service import answer_question, ingest_file
 
 router = APIRouter(prefix="/api", tags=["rag"])
@@ -13,9 +13,10 @@ def upload_document(
     file: UploadFile = File(...),  # noqa: B008
     settings: Settings = Depends(get_settings),  # noqa: B008
 ) -> UploadResponse:
+    original_file_name = sanitize_filename(file.filename or "uploaded-file")
     try:
         saved_path = save_upload_file(file, settings.upload_dir)
-        chunks_indexed = ingest_file(saved_path, settings)
+        ingest_result = ingest_file(saved_path, settings, original_file_name=original_file_name)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -24,10 +25,13 @@ def upload_document(
         file.file.close()
 
     return UploadResponse(
+        document_id=ingest_result.document_id,
+        original_file_name=ingest_result.original_file_name,
         file_name=saved_path.name,
         saved_path=str(saved_path),
-        chunks_indexed=chunks_indexed,
-        message="File uploaded and indexed successfully.",
+        file_hash=ingest_result.file_hash,
+        chunks_indexed=ingest_result.chunks_indexed,
+        message="文件上传并入库成功。",
     )
 
 

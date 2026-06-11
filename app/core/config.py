@@ -41,6 +41,10 @@ class Settings(BaseSettings):
         return self.data_dir / "chroma"
 
     @property
+    def registry_path(self) -> Path:
+        return self.data_dir / "registry.json"
+
+    @property
     def api_base_url(self) -> str:
         return f"http://{self.api_host}:{self.api_port}"
 

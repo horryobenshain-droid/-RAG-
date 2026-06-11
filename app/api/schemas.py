@@ -2,8 +2,11 @@ from pydantic import BaseModel, Field
 
 
 class UploadResponse(BaseModel):
+    document_id: str
+    original_file_name: str
     file_name: str
     saved_path: str
+    file_hash: str
     chunks_indexed: int
     message: str
 

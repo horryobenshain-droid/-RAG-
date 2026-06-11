@@ -1,3 +1,4 @@
+import hashlib
 import re
 import shutil
 from pathlib import Path
@@ -46,6 +47,14 @@ def assert_supported_file(path: Path) -> None:
         supported = ", ".join(sorted(SUPPORTED_SUFFIXES))
         msg = f"Unsupported file type '{path.suffix}'. Supported suffixes: {supported}"
         raise ValueError(msg)
+
+
+def calculate_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for block in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def save_upload_file(upload_file: UploadFile, upload_dir: Path) -> Path:
