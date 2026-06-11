@@ -35,7 +35,7 @@ def upload_document(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to ingest file: {exc}") from exc
+        raise HTTPException(status_code=500, detail=f"文件入库失败：{exc}") from exc
     finally:
         file.file.close()
 
@@ -57,23 +57,34 @@ def chat(
 ) -> ChatResponse:
     top_k = request.top_k or settings.default_top_k
     try:
-        answer, documents = answer_question(request.question, top_k, settings)
+        result = answer_question(request.question, top_k, settings)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to answer question: {exc}") from exc
+        raise HTTPException(status_code=500, detail=f"问答生成失败：{exc}") from exc
 
     sources = [
         Source(
             source_id=index,
-            file_name=str(document.metadata.get("file_name", "unknown")),
-            page=_human_page(document.metadata.get("page")),
-            chunk_id=document.metadata.get("chunk_id"),
-            preview=document.page_content.strip()[:300],
+            file_name=str(source.document.metadata.get("original_file_name", "unknown")),
+            page=_human_page(source.document.metadata.get("page")),
+            chunk_id=source.document.metadata.get("chunk_id"),
+            document_id=_optional_str(source.document.metadata.get("document_id")),
+            score=source.score,
+            preview=source.document.page_content.strip()[:300],
         )
-        for index, document in enumerate(documents, start=1)
+        for index, source in enumerate(result.sources, start=1)
     ]
-    return ChatResponse(answer=answer, sources=sources)
+    return ChatResponse(
+        answer=result.answer,
+        sources=sources,
+        elapsed_ms=round(result.elapsed_ms, 2),
+        retrieved_chunks=len(result.sources),
+        llm_provider=result.llm_provider,
+        llm_model=result.llm_model,
+        embedding_provider=result.embedding_provider,
+        embedding_model=result.embedding_model,
+    )
 
 
 @router.get("/documents", response_model=DocumentListResponse)
@@ -124,3 +135,9 @@ def _human_page(page: object) -> int | None:
         return int(page) + 1
     except (TypeError, ValueError):
         return None
+
+
+def _optional_str(value: object) -> str | None:
+    if value is None:
+        return None
+    return str(value)

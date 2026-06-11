@@ -49,6 +49,12 @@ def test_upload_and_chat_demo_flow(tmp_path: Path) -> None:
         payload = chat_response.json()
         assert "demo" in payload["answer"]
         assert payload["sources"]
+        assert payload["retrieved_chunks"] == 1
+        assert payload["elapsed_ms"] >= 0
+        assert payload["llm_provider"] == "demo"
+        assert payload["embedding_provider"] == "demo"
+        assert payload["sources"][0]["score"] is not None
+        assert 0 <= payload["sources"][0]["score"] <= 1
 
         delete_response = client.delete(f"/api/documents/{document_id}")
         assert delete_response.status_code == 200

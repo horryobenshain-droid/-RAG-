@@ -21,12 +21,20 @@ class Source(BaseModel):
     file_name: str
     page: int | None = None
     chunk_id: int | str | None = None
+    document_id: str | None = None
+    score: float | None = None
     preview: str
 
 
 class ChatResponse(BaseModel):
     answer: str
     sources: list[Source]
+    elapsed_ms: float
+    retrieved_chunks: int
+    llm_provider: str
+    llm_model: str
+    embedding_provider: str
+    embedding_model: str
 
 
 class DocumentRecordResponse(BaseModel):

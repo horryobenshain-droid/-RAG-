@@ -1,3 +1,5 @@
+import warnings
+
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
@@ -27,6 +29,22 @@ def similarity_search(question: str, top_k: int, settings: Settings) -> list[Doc
     return vectorstore.similarity_search(question, k=top_k)
 
 
+def similarity_search_with_scores(
+    question: str,
+    top_k: int,
+    settings: Settings,
+) -> list[tuple[Document, float | None]]:
+    vectorstore = get_vectorstore(settings)
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="Relevance scores must be between 0 and 1")
+            results = vectorstore.similarity_search_with_relevance_scores(question, k=top_k)
+        return [(document, _normalize_score(score)) for document, score in results]
+    except NotImplementedError:
+        documents = vectorstore.similarity_search(question, k=top_k)
+        return [(document, None) for document in documents]
+
+
 def delete_document_vectors(document_id: str, settings: Settings) -> int:
     vectorstore = get_vectorstore(settings)
     results = vectorstore.get(where={"document_id": document_id}, include=[])
@@ -46,3 +64,9 @@ def count_vectors(settings: Settings) -> int:
     vectorstore = get_vectorstore(settings)
     results = vectorstore.get(include=[])
     return len(results.get("ids", []))
+
+
+def _normalize_score(score: float | None) -> float | None:
+    if score is None:
+        return None
+    return max(0.0, min(1.0, float(score)))

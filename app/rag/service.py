@@ -1,4 +1,5 @@
 from pathlib import Path
+from time import perf_counter
 from uuid import uuid4
 
 from langchain_core.documents import Document
@@ -14,7 +15,7 @@ from app.rag.vectorstore import (
     count_vectors,
     delete_document_vectors,
     reset_vectorstore,
-    similarity_search,
+    similarity_search_with_scores,
 )
 
 
@@ -30,6 +31,32 @@ class IngestResult:
         self.file_hash = file_hash
         self.chunks_indexed = chunks_indexed
         self.original_file_name = original_file_name
+
+
+class RetrievedSource:
+    def __init__(self, document: Document, score: float | None) -> None:
+        self.document = document
+        self.score = score
+
+
+class AnswerResult:
+    def __init__(
+        self,
+        answer: str,
+        sources: list[RetrievedSource],
+        elapsed_ms: float,
+        llm_provider: str,
+        llm_model: str,
+        embedding_provider: str,
+        embedding_model: str,
+    ) -> None:
+        self.answer = answer
+        self.sources = sources
+        self.elapsed_ms = elapsed_ms
+        self.llm_provider = llm_provider
+        self.llm_model = llm_model
+        self.embedding_provider = embedding_provider
+        self.embedding_model = embedding_model
 
 
 def ingest_file(
@@ -84,10 +111,25 @@ def ingest_file(
     )
 
 
-def answer_question(question: str, top_k: int, settings: Settings) -> tuple[str, list[Document]]:
-    documents = similarity_search(question, top_k, settings)
+def answer_question(question: str, top_k: int, settings: Settings) -> AnswerResult:
+    started_at = perf_counter()
+    search_results = similarity_search_with_scores(question, top_k, settings)
+    sources = [
+        RetrievedSource(document=document, score=score)
+        for document, score in search_results
+    ]
+    documents = [source.document for source in sources]
     answer = generate_answer(question, documents, settings)
-    return answer, documents
+    elapsed_ms = (perf_counter() - started_at) * 1000
+    return AnswerResult(
+        answer=answer,
+        sources=sources,
+        elapsed_ms=elapsed_ms,
+        llm_provider=settings.llm_provider,
+        llm_model=_llm_model_name(settings),
+        embedding_provider=settings.embedding_provider,
+        embedding_model=_embedding_model_name(settings),
+    )
 
 
 def list_documents(settings: Settings, include_deleted: bool = False) -> list[dict[str, object]]:
@@ -114,3 +156,9 @@ def _embedding_model_name(settings: Settings) -> str:
     if settings.embedding_provider == "openai":
         return settings.openai_embedding_model
     return "hash-embeddings"
+
+
+def _llm_model_name(settings: Settings) -> str:
+    if settings.llm_provider == "openai":
+        return settings.openai_chat_model
+    return "demo-snippet-answer"

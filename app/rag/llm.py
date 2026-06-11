@@ -3,21 +3,27 @@ from langchain_core.documents import Document
 from app.core.config import Settings
 
 SYSTEM_PROMPT = """你是一个严谨的本地知识库问答助手。
-只能根据给定的检索片段回答问题。
-如果片段中没有足够信息，请明确说明“当前知识库中没有足够信息回答”。
-回答要简洁、准确，并尽量指出依据来自哪些来源编号。"""
+你的任务是基于检索片段回答用户问题，并尽量降低幻觉。
+
+规则：
+1. 只能使用检索片段中明确出现的信息作答。
+2. 如果检索片段不足以回答问题，请回答“当前知识库中没有足够信息回答这个问题”。
+3. 不要编造文件、页码、实验结果、代码行为或论文结论。
+4. 回答应简洁、专业，默认使用简体中文。
+5. 在答案末尾列出引用来源，例如：引用：source 1, source 3。
+"""
 
 
 def build_context(documents: list[Document]) -> str:
     blocks = []
     for index, document in enumerate(documents, start=1):
-        file_name = document.metadata.get("file_name", "unknown")
+        file_name = document.metadata.get("original_file_name", "unknown")
         page = document.metadata.get("page")
         chunk_id = document.metadata.get("chunk_id", "unknown")
         location = f"{file_name}"
         if page is not None:
-            location += f", page {int(page) + 1}"
-        location += f", chunk {chunk_id}"
+            location += f"，第 {int(page) + 1} 页"
+        location += f"，chunk {chunk_id}"
         blocks.append(f"[source {index}: {location}]\n{document.page_content}")
     return "\n\n".join(blocks)
 
