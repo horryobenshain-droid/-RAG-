@@ -1,24 +1,28 @@
-# Local RAG Knowledge Base
+# 本地 RAG 知识库
 
-基于 RAG（Retrieval-Augmented Generation，检索增强生成）的本地知识库问答系统。项目支持上传 PDF、Word、Markdown、TXT 与常见代码文件，自动解析、切分、向量化并写入本地向量数据库，然后根据检索结果生成带来源引用的回答。
+一个基于 RAG（检索增强生成）的本地知识库问答系统。项目支持上传 PDF、Word、Markdown、TXT 与常见代码文件，自动完成解析、切分、向量化、持久化检索，并基于检索片段生成带来源引用的回答。
 
-## 项目亮点
+## 当前版本
 
-- 本地文档解析：支持 PDF、Word、Markdown、TXT 和常见代码文件。
-- RAG 闭环：覆盖文档加载、文本切分、Embedding、向量检索、Prompt 组装和答案生成。
-- 本地向量库：使用 Chroma 持久化存储，适合个人知识库与简历演示。
-- 模型可切换：默认 demo 模式可无密钥运行，也可切换到 OpenAI 模型。
-- 来源追踪：回答返回命中文档、页码、chunk 编号和片段预览。
-- 前后端分离：FastAPI 提供接口，Streamlit 提供轻量可视化界面。
+`v0.2.0` 已完成真实 RAG 管线的核心工程能力：
+
+- 文档上传、解析、切分与 Chroma 向量入库。
+- 文档注册表：记录 `document_id`、文件哈希、入库时间、chunk 数、模型配置。
+- 知识库管理：查看已入库文档、删除单个文档、清空知识库。
+- 问答增强：返回检索来源、相关度分数、耗时、LLM Provider、Embedding Provider。
+- 防幻觉 Prompt：要求模型只基于检索片段回答，信息不足时明确说明。
+- 简体中文 Streamlit 界面。
+- demo / OpenAI 两种 provider 模式。
 
 ## 技术栈
 
 - Python 3.11+
 - FastAPI
 - Streamlit
-- LangChain
+- LangChain Core / Text Splitters
 - Chroma
-- OpenAI / 本地模型扩展预留
+- OpenAI Responses API / OpenAI Embeddings
+- PyPDF / docx2txt
 
 ## 快速开始
 
@@ -41,25 +45,38 @@ uvicorn app.main:app --reload --port 8000
 streamlit run ui/streamlit_app.py
 ```
 
-默认配置使用 `demo` 模式，不需要 API Key，可以先验证上传、入库、检索和来源展示流程。要使用 OpenAI，请在 `.env` 中设置：
+访问：
+
+- 前端界面：<http://127.0.0.1:8501>
+- API 文档：<http://127.0.0.1:8000/docs>
+- 健康检查：<http://127.0.0.1:8000/health>
+
+## 模型配置
+
+默认使用 `demo` 模式，不需要 API Key，可以先验证上传、入库、检索、来源展示和知识库管理流程。
+
+要启用 OpenAI，请编辑 `.env`：
 
 ```env
 LLM_PROVIDER=openai
 EMBEDDING_PROVIDER=openai
 OPENAI_API_KEY=your_api_key_here
+OPENAI_CHAT_MODEL=gpt-5.5
+OPENAI_EMBEDDING_MODEL=text-embedding-3-large
 ```
 
-切换 Embedding 模型或 Provider 后，建议清空 `data/chroma/` 重新入库，避免向量维度不一致。
+切换 Embedding Provider 或 Embedding 模型后，建议在界面中清空知识库并重新入库，避免向量维度不一致。
 
 ## API
 
-后端启动后可访问：
+- `GET /health`：健康检查。
+- `POST /api/upload`：上传并入库文档。
+- `POST /api/chat`：基于知识库问答。
+- `GET /api/documents`：查看已入库文档。
+- `DELETE /api/documents/{document_id}`：删除单个文档及其向量。
+- `DELETE /api/documents`：清空知识库。
 
-- `GET /health`：健康检查
-- `POST /api/upload`：上传并入库文档
-- `POST /api/chat`：基于知识库问答
-
-示例请求：
+问答示例：
 
 ```powershell
 curl -X POST http://127.0.0.1:8000/api/chat `
@@ -67,52 +84,68 @@ curl -X POST http://127.0.0.1:8000/api/chat `
   -d '{"question":"这份文档主要讲了什么？","top_k":4}'
 ```
 
+响应会包含：
+
+- `answer`：回答内容。
+- `sources`：来源文件、页码、chunk、相关度分数和片段预览。
+- `elapsed_ms`：检索与生成耗时。
+- `llm_provider` / `llm_model`：当前回答模型配置。
+- `embedding_provider` / `embedding_model`：当前向量模型配置。
+
 ## 目录结构
 
 ```text
 .
 ├─ app/
-│  ├─ api/              # FastAPI 路由与请求响应模型
-│  ├─ core/             # 配置、文件工具
-│  ├─ loaders/          # 本地文档加载器
-│  ├─ rag/              # Embedding、切分、向量库、问答链
+│  ├─ api/              # FastAPI 路由与 Pydantic 模型
+│  ├─ core/             # 配置、文件工具、文档注册表
+│  ├─ loaders/          # PDF、Word、文本、代码文件加载
+│  ├─ rag/              # Embedding、切分、向量库、Prompt、问答服务
 │  └─ main.py           # FastAPI 应用入口
 ├─ data/
 │  ├─ uploads/          # 用户上传文件，默认不提交
-│  └─ chroma/           # Chroma 持久化数据，默认不提交
+│  ├─ chroma/           # Chroma 持久化数据，默认不提交
+│  └─ registry.json     # 文档注册表，默认不提交
 ├─ docs/
-│  ├─ architecture.md   # 架构说明
-│  └─ roadmap.md        # 迭代路线
+│  ├─ architecture.md
+│  └─ roadmap.md
 ├─ tests/
 ├─ ui/
-│  └─ streamlit_app.py  # Streamlit 前端
+│  └─ streamlit_app.py
 ├─ .env.example
 ├─ pyproject.toml
 └─ requirements.txt
 ```
 
+## 开发验证
+
+```powershell
+ruff check .
+pytest -q
+```
+
 ## 版本规划
 
 - `v0.1.0`：项目骨架、上传接口、基础 RAG 闭环、Streamlit 页面。
-- `v0.2.0`：多知识库管理、删除/重建索引、检索参数配置。
-- `v0.3.0`：代码库专用解析策略，按函数、类、路径增强检索。
+- `v0.2.0`：文档注册表、知识库管理、检索分数、耗时统计、中文界面。
+- `v0.3.0`：代码库专用 RAG，支持 zip 上传、路径过滤、函数/类级 chunk。
 - `v0.4.0`：接入 Ollama，支持 Qwen / Llama 本地模型。
-- `v1.0.0`：加入评估集、耗时统计、Prompt 版本管理和完整演示文档。
+- `v1.0.0`：评估集、Prompt 版本管理、架构图、演示截图和部署文档。
 
 ## Git 工作流
 
 建议按功能分支迭代：
 
 ```powershell
-git checkout -b feature/knowledge-base-management
+git checkout -b feature/code-repository-rag
 git add .
-git commit -m "feat: add knowledge base management"
-git push origin feature/knowledge-base-management
+git commit -m "feat: add code repository ingestion"
+git push origin feature/code-repository-rag
 ```
 
 稳定版本可以打 tag：
 
 ```powershell
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
