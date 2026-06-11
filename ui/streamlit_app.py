@@ -1,4 +1,5 @@
 import os
+from html import escape
 from typing import Any
 
 import requests
@@ -100,88 +101,303 @@ def inject_styles() -> None:
         """
         <style>
         :root {
-            --app-blue-50: #eef8ff;
-            --app-blue-100: #d9efff;
-            --app-blue-500: #2f9df4;
-            --app-blue-700: #1267b3;
-            --app-cyan-500: #12b7d8;
-            --app-coral-500: #ff6b6b;
-            --app-ink: #12324a;
+            --sky-25: #f8fcff;
+            --sky-50: #eff8ff;
+            --sky-100: #dff1ff;
+            --sky-200: #bfe3fb;
+            --sky-500: #238fe2;
+            --sky-700: #0e5d9d;
+            --cyan-500: #16b4c9;
+            --mint-500: #24a978;
+            --coral-500: #ef6a6a;
+            --ink: #17344d;
+            --muted: #5d7487;
+            --line: #d8eafa;
+            --surface: #ffffff;
         }
         .stApp {
-            background:
-                linear-gradient(180deg, #f5fbff 0%, #edf7ff 34%, #f8fbff 100%);
-            color: var(--app-ink);
+            background: linear-gradient(180deg, #f6fbff 0%, #eef8ff 44%, #f9fcff 100%);
+            color: var(--ink);
         }
         .block-container {
-            max-width: 1280px;
-            padding-top: 1.8rem;
-            padding-bottom: 3rem;
+            max-width: 1180px;
+            padding-top: 1.35rem;
+            padding-bottom: 5.5rem;
+        }
+        [data-testid="stHeader"] {
+            background: rgba(246, 251, 255, 0.84);
+            backdrop-filter: blur(10px);
         }
         [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #eaf6ff 0%, #dff2ff 100%);
-            border-right: 1px solid #bfe2fb;
+            background: #f2f9ff;
+            border-right: 1px solid var(--line);
         }
         [data-testid="stSidebar"] * {
-            color: #10354f;
+            color: var(--ink);
+        }
+        [data-testid="stSidebar"] [data-testid="stFileUploader"] {
+            background: rgba(255, 255, 255, 0.68);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 0.45rem;
+        }
+        [data-testid="stSidebar"] [data-testid="stFileUploader"] section {
+            background: #f8fcff !important;
+            border: 1px dashed var(--sky-200) !important;
+            border-radius: 8px !important;
+            color: var(--muted) !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stFileUploader"] section * {
+            color: var(--muted) !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stFileUploader"] button {
+            background: #eff8ff !important;
+            border: 1px solid var(--sky-200) !important;
+            color: var(--sky-700) !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stFileUploader"] small {
+            color: var(--muted) !important;
         }
         h1 {
-            color: #0b4f8a;
+            color: #0b4f84;
             letter-spacing: 0;
         }
         h2, h3 {
-            color: #125f9c;
+            color: #145c94;
             letter-spacing: 0;
         }
-        [data-testid="stMetric"] {
-            background: rgba(255, 255, 255, 0.86);
-            border: 1px solid #c8e7fb;
+        .app-heading {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 1rem;
+            border-bottom: 1px solid var(--line);
+            padding-bottom: 0.85rem;
+            margin-bottom: 1rem;
+        }
+        .app-heading h1 {
+            margin: 0;
+            font-size: 2rem;
+            line-height: 1.15;
+        }
+        .app-badge {
+            display: inline-flex;
+            align-items: center;
+            border: 1px solid var(--sky-200);
+            border-left: 3px solid var(--sky-500);
             border-radius: 8px;
-            padding: 0.75rem 0.85rem;
-            box-shadow: 0 8px 24px rgba(47, 157, 244, 0.08);
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--sky-700);
+            font-size: 0.86rem;
+            font-weight: 700;
+            padding: 0.34rem 0.58rem;
+            white-space: nowrap;
+        }
+        [data-testid="stMetric"] {
+            background: rgba(255, 255, 255, 0.88);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 0.72rem 0.8rem;
+            box-shadow: 0 8px 20px rgba(35, 143, 226, 0.06);
         }
         [data-testid="stMetricValue"] {
-            color: #0b5d9a;
-            font-size: 1.08rem;
+            color: var(--sky-700);
+            font-size: 1rem;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
         }
         [data-testid="stMetricLabel"] {
-            color: #4e7794;
+            color: var(--muted);
+        }
+        [data-testid="stSidebar"] h2,
+        [data-testid="stSidebar"] h3 {
+            font-size: 1rem;
+            line-height: 1.35;
+            margin-top: 0.35rem;
+        }
+        [data-testid="stSidebar"] hr {
+            margin: 1rem 0;
+            border-color: var(--line);
         }
         .stButton > button {
             border-radius: 8px;
-            border-color: #9ed7fb;
-            color: #0f5f9b;
+            border-color: var(--sky-200);
+            color: var(--sky-700);
+            min-height: 2.35rem;
+            font-weight: 650;
+            background: rgba(255, 255, 255, 0.76);
+        }
+        .stButton > button:hover {
+            border-color: var(--sky-500);
+            color: var(--sky-700);
+            background: #f3faff;
         }
         .stButton > button[kind="primary"] {
-            background: linear-gradient(135deg, #2f9df4 0%, #12b7d8 100%);
+            background: linear-gradient(135deg, var(--sky-500) 0%, var(--cyan-500) 100%);
             border: none;
             color: white;
-            box-shadow: 0 8px 18px rgba(18, 103, 179, 0.18);
+            box-shadow: 0 8px 18px rgba(35, 143, 226, 0.16);
         }
-        .stChatMessage {
-            border: 1px solid #d5ebfa;
+        .stButton > button[kind="primary"]:hover {
+            color: white;
+        }
+        div[role="radiogroup"] {
+            background: rgba(255, 255, 255, 0.58);
+            border: 1px solid var(--line);
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.78);
+            padding: 0.35rem 0.45rem;
+        }
+        .stSlider [data-baseweb="slider"] > div {
+            color: var(--sky-500);
+        }
+        [data-testid="stChatMessage"] {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.86);
+            box-shadow: 0 8px 20px rgba(35, 143, 226, 0.045);
+            margin-bottom: 0.85rem;
+        }
+        [data-testid="stChatMessage"] *,
+        [data-testid="stChatMessage"] p,
+        [data-testid="stChatMessage"] li,
+        [data-testid="stChatMessage"] span,
+        [data-testid="stChatMessage"] div {
+            color: var(--ink) !important;
+        }
+        [data-testid="stChatMessage"] [data-testid="stCaptionContainer"] *,
+        [data-testid="stChatMessage"] small {
+            color: var(--muted) !important;
+        }
+        [data-testid="stChatMessage"] svg {
+            color: var(--sky-700) !important;
+            fill: currentColor !important;
+        }
+        [data-testid="stSpinner"] *,
+        [data-testid="stStatusWidget"] * {
+            color: var(--ink) !important;
         }
         [data-testid="stExpander"] {
-            border-color: #c7e5fa;
+            border-color: var(--line);
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.72);
+            background: rgba(255, 255, 255, 0.76);
         }
-        [data-testid="stFileUploader"] {
-            background: rgba(255, 255, 255, 0.65);
+        [data-testid="stExpander"] *,
+        [data-testid="stExpander"] summary {
+            color: var(--ink) !important;
+        }
+        [data-testid="stChatInput"] {
+            background: rgba(248, 252, 255, 0.92);
+            border-top: 1px solid var(--line);
+        }
+        [data-testid="stBottom"] {
+            background: #f2f9ff !important;
+            border-top: 1px solid var(--line);
+        }
+        [data-testid="stBottom"] > div {
+            background: #f2f9ff !important;
+        }
+        [data-testid="stChatInput"] > div {
+            background: #f8fcff !important;
+            border: 1px solid var(--sky-200) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 24px rgba(35, 143, 226, 0.08);
+        }
+        [data-testid="stChatInput"] textarea {
+            background: var(--surface) !important;
+            border: 1px solid var(--line) !important;
+            border-radius: 8px;
+            color: var(--ink) !important;
+        }
+        [data-testid="stChatInput"] textarea::placeholder {
+            color: #7f9aae !important;
+            opacity: 1 !important;
+        }
+        [data-testid="stChatInput"] button {
+            background: #e6f5ff !important;
+            border: 1px solid var(--sky-200) !important;
+            color: var(--sky-700) !important;
+            border-radius: 8px !important;
+        }
+        .doc-title {
+            color: var(--ink);
+            font-weight: 750;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+        .doc-meta {
+            color: var(--muted);
+            font-size: 0.84rem;
+            line-height: 1.45;
+            margin-top: 0.12rem;
+            overflow-wrap: anywhere;
+        }
+        .file-chip {
+            width: 2.35rem;
+            height: 2.35rem;
+            border-radius: 8px;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--line);
+            background: linear-gradient(135deg, var(--sky-50) 0%, #ffffff 100%);
+            color: var(--sky-700);
+            font-size: 0.72rem;
+            font-weight: 800;
+            margin-top: 0.05rem;
+        }
+        .doc-divider {
+            height: 1px;
+            background: var(--line);
+            margin: 0.58rem 0;
+            opacity: 0.72;
+        }
+        [data-testid="stCodeBlock"] {
+            border: 1px solid var(--line);
             border-radius: 8px;
         }
-        .doc-row {
-            border: 1px solid #c7e5fa;
-            border-radius: 8px;
-            padding: 0.65rem 0.8rem;
-            background: rgba(255, 255, 255, 0.78);
-            margin-bottom: 0.5rem;
+        [data-testid="stCodeBlock"],
+        [data-testid="stCodeBlock"] pre,
+        [data-testid="stCodeBlock"] code {
+            background: #f6fbff !important;
+            color: #17344d !important;
         }
-        .muted {
-            color: #5d829b;
-            font-size: 0.88rem;
+        [data-testid="stCodeBlock"] pre {
+            border-radius: 8px !important;
+        }
+        [data-testid="stCodeBlock"] span {
+            color: #17344d !important;
+            background: transparent !important;
+        }
+        [data-testid="stMarkdownContainer"] pre,
+        [data-testid="stMarkdownContainer"] pre code {
+            background: #f6fbff !important;
+            color: #17344d !important;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+        }
+        [data-testid="stMarkdownContainer"] pre span {
+            color: #17344d !important;
+            background: transparent !important;
+        }
+        [data-testid="stMarkdownContainer"] :not(pre) > code {
+            background: #e8f5ff !important;
+            color: #0e5d9d !important;
+            border: 1px solid var(--sky-200);
+            border-radius: 5px;
+            padding: 0.08rem 0.28rem;
+            font-weight: 650;
+        }
+        @media (max-width: 768px) {
+            .block-container {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            .app-heading {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+            .app-heading h1 {
+                font-size: 1.65rem;
+            }
         }
         </style>
         """,
@@ -205,7 +421,16 @@ def render_header() -> None:
     chunk_total = sum(int(doc.get("chunks_indexed", 0)) for doc in active_documents)
     model_pair = f"{health.get('llm_provider', '-')}/{health.get('embedding_provider', '-')}"
 
-    st.title("本地 RAG 知识库")
+    status_label = "服务在线" if health else "等待后端"
+    st.markdown(
+        f"""
+        <div class="app-heading">
+            <h1>本地 RAG 知识库</h1>
+            <div class="app-badge">{status_label}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("服务状态", "在线" if health else "未连接")
     col2.metric("文档数量", len(active_documents))
@@ -243,6 +468,7 @@ def render_sidebar() -> tuple[int, str]:
             "回答模式",
             options=list(ANSWER_MODES.keys()),
             index=0,
+            horizontal=True,
         )
         answer_mode = ANSWER_MODES[answer_mode_label]
         top_k = st.slider("召回片段数", min_value=1, max_value=10, value=4)
@@ -280,11 +506,22 @@ def render_knowledge_base() -> None:
 
         for document in documents:
             with st.container():
-                col_name, col_meta, col_action = st.columns([4, 3, 1])
-                col_name.markdown(f"**{document['original_file_name']}**")
-                col_meta.caption(
-                    f"{document['chunks_indexed']} 片段 · "
-                    f"{document['embedding_provider']} / {document['embedding_model']}"
+                col_icon, col_info, col_action = st.columns([0.55, 5.2, 1])
+                file_name = document["original_file_name"]
+                extension = file_name.rsplit(".", 1)[-1].upper() if "." in file_name else "DOC"
+                extension = extension[:4]
+                col_icon.markdown(
+                    f'<div class="file-chip">{escape(extension)}</div>',
+                    unsafe_allow_html=True,
+                )
+                col_info.markdown(
+                    (
+                        f'<div class="doc-title">{escape(file_name)}</div>'
+                        f'<div class="doc-meta">{document["chunks_indexed"]} 片段 · '
+                        f'{escape(str(document["embedding_provider"]))} / '
+                        f'{escape(str(document["embedding_model"]))}</div>'
+                    ),
+                    unsafe_allow_html=True,
                 )
                 if col_action.button(
                     "删除",
@@ -298,6 +535,7 @@ def render_knowledge_base() -> None:
                         st.rerun()
                     else:
                         st.error(payload)
+                st.markdown('<div class="doc-divider"></div>', unsafe_allow_html=True)
 
 
 def render_chat_history() -> None:
@@ -417,6 +655,6 @@ render_header()
 render_knowledge_base()
 render_chat_history()
 
-question_text = st.chat_input("输入问题，按 Enter 发送")
+question_text = st.chat_input("例如：请总结这篇论文的核心方法，或解释代码库中的检索流程")
 if question_text:
     handle_question(question_text, top_k_value, answer_mode_value)
