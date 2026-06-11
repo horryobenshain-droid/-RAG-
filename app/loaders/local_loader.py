@@ -48,7 +48,9 @@ def load_local_file(path: Path) -> list[Document]:
         raise ValueError(msg)
 
     for doc in docs:
-        doc.metadata.update(_base_metadata(path, suffix))
+        base_metadata = _base_metadata(path, suffix)
+        base_metadata.update(doc.metadata)
+        doc.metadata = base_metadata
 
     return [doc for doc in docs if doc.page_content.strip()]
 
@@ -77,9 +79,10 @@ def _load_text_document(path: Path, suffix: str) -> Document:
 
 
 def _base_metadata(path: Path, suffix: str) -> dict[str, str]:
+    document_type = "code" if suffix in CODE_SUFFIXES else "document"
     return {
         "source": str(path),
         "file_name": path.name,
         "extension": suffix,
-        "document_type": "document",
+        "document_type": document_type,
     }
