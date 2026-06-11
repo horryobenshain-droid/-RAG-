@@ -86,13 +86,32 @@ def render_sources(sources: list[dict[str, Any]]) -> None:
         return
     with st.expander("来源片段", expanded=False):
         for source in sources:
+            source_id = source.get("source_id", "?")
+            file_name = source.get("file_name", "未知文件")
             page = f"第 {source['page']} 页" if source.get("page") else "无页码"
             score = source.get("score")
             score_text = f"相关度 {score:.2f}" if isinstance(score, int | float) else "相关度未知"
             st.markdown(
-                f"**[{source['source_id']}] {source['file_name']} · {page} · {score_text}**"
+                f"**[{source_id}] {file_name} · {page} · {score_text}**"
             )
-            st.caption(source["preview"])
+            st.caption(source.get("preview", ""))
+
+
+def render_answer_metadata(payload: dict[str, Any]) -> None:
+    metadata = []
+    if payload.get("elapsed_ms") is not None:
+        metadata.append(f"耗时 {payload['elapsed_ms']} ms")
+    if payload.get("retrieved_chunks") is not None:
+        metadata.append(f"召回 {payload['retrieved_chunks']} 个片段")
+
+    llm_provider = payload.get("llm_provider")
+    llm_model = payload.get("llm_model")
+    if llm_provider or llm_model:
+        model_name = " / ".join(value for value in [llm_provider, llm_model] if value)
+        metadata.append(f"模型 {model_name}")
+
+    if metadata:
+        st.caption(" · ".join(metadata))
 
 
 st.set_page_config(page_title="本地 RAG 知识库", layout="wide")
@@ -187,18 +206,14 @@ if question:
                 json={"question": question, "top_k": top_k},
             )
         if ok and isinstance(payload, dict):
-            st.markdown(payload["answer"])
-            st.caption(
-                f"耗时 {payload['elapsed_ms']} ms · "
-                f"召回 {payload['retrieved_chunks']} 个片段 · "
-                f"模型 {payload['llm_provider']} / {payload['llm_model']}"
-            )
-            render_sources(payload["sources"])
+            st.markdown(payload.get("answer", "后端未返回回答内容。"))
+            render_answer_metadata(payload)
+            render_sources(payload.get("sources", []))
             st.session_state.messages.append(
                 {
                     "role": "assistant",
-                    "content": payload["answer"],
-                    "sources": payload["sources"],
+                    "content": payload.get("answer", "后端未返回回答内容。"),
+                    "sources": payload.get("sources", []),
                 }
             )
         else:
