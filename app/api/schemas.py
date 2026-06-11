@@ -24,6 +24,13 @@ class Source(BaseModel):
     chunk_id: int | str | None = None
     document_id: str | None = None
     score: float | None = None
+    vector_score: float | None = None
+    keyword_score: float | None = None
+    matched_keywords: list[str] = []
+    language: str | None = None
+    symbol_name: str | None = None
+    start_line: int | None = None
+    end_line: int | None = None
     preview: str
 
 

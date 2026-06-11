@@ -35,13 +35,14 @@ def similarity_search_with_scores(
     settings: Settings,
 ) -> list[tuple[Document, float | None]]:
     vectorstore = get_vectorstore(settings)
+    fetch_k = max(top_k * 4, top_k)
     try:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="Relevance scores must be between 0 and 1")
-            results = vectorstore.similarity_search_with_relevance_scores(question, k=top_k)
+            results = vectorstore.similarity_search_with_relevance_scores(question, k=fetch_k)
         return [(document, _normalize_score(score)) for document, score in results]
     except NotImplementedError:
-        documents = vectorstore.similarity_search(question, k=top_k)
+        documents = vectorstore.similarity_search(question, k=fetch_k)
         return [(document, None) for document in documents]
 
 

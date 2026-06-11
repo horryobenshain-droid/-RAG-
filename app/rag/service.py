@@ -8,6 +8,7 @@ from app.core.config import Settings
 from app.core.files import calculate_sha256
 from app.core.registry import DocumentRecord, DocumentRegistry, utc_now
 from app.loaders.local_loader import load_local_file
+from app.rag.hybrid_retriever import HybridScore, rerank_with_keywords
 from app.rag.llm import AnswerMode, generate_answer
 from app.rag.splitter import split_documents
 from app.rag.vectorstore import (
@@ -34,9 +35,10 @@ class IngestResult:
 
 
 class RetrievedSource:
-    def __init__(self, document: Document, score: float | None) -> None:
+    def __init__(self, document: Document, score: float | None, hybrid_score: HybridScore) -> None:
         self.document = document
         self.score = score
+        self.hybrid_score = hybrid_score
 
 
 class AnswerResult:
@@ -123,9 +125,14 @@ def answer_question(
 ) -> AnswerResult:
     started_at = perf_counter()
     search_results = similarity_search_with_scores(question, top_k, settings)
+    reranked_results = rerank_with_keywords(question, search_results, top_k)
     sources = [
-        RetrievedSource(document=document, score=score)
-        for document, score in search_results
+        RetrievedSource(
+            document=document,
+            score=hybrid_score.final_score,
+            hybrid_score=hybrid_score,
+        )
+        for document, hybrid_score in reranked_results
     ]
     documents = [source.document for source in sources]
     answer = generate_answer(question, documents, settings, answer_mode)

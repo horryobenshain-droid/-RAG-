@@ -71,6 +71,13 @@ def chat(
             chunk_id=source.document.metadata.get("chunk_id"),
             document_id=_optional_str(source.document.metadata.get("document_id")),
             score=source.score,
+            vector_score=source.hybrid_score.vector_score,
+            keyword_score=source.hybrid_score.keyword_score,
+            matched_keywords=source.hybrid_score.matched_keywords,
+            language=_optional_str(source.document.metadata.get("language")),
+            symbol_name=_optional_str(source.document.metadata.get("symbol_name")),
+            start_line=_optional_int(source.document.metadata.get("start_line")),
+            end_line=_optional_int(source.document.metadata.get("end_line")),
             preview=source.document.page_content.strip()[:300],
         )
         for index, source in enumerate(result.sources, start=1)
@@ -143,3 +150,12 @@ def _optional_str(value: object) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+def _optional_int(value: object) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
