@@ -46,7 +46,7 @@ def _generate_with_openai(question: str, context: str, settings: Settings) -> st
 
     from openai import OpenAI
 
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = OpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
     response = client.responses.create(
         model=settings.openai_chat_model,
         instructions=SYSTEM_PROMPT,

@@ -61,9 +61,19 @@ streamlit run ui/streamlit_app.py
 LLM_PROVIDER=openai
 EMBEDDING_PROVIDER=openai
 OPENAI_API_KEY=your_api_key_here
+OPENAI_BASE_URL=
 OPENAI_CHAT_MODEL=gpt-5.5
 OPENAI_EMBEDDING_MODEL=text-embedding-3-large
 ```
+
+如果使用 OpenAI 兼容中转站，可以填写中转站提供的地址：
+
+```env
+OPENAI_API_KEY=your_gateway_key
+OPENAI_BASE_URL=https://your-gateway.example.com/v1
+```
+
+中转站需要同时兼容 Responses API 和 Embeddings API。若只支持 Chat Completions，后续需要再增加一个 `chat_completions` LLM 适配器。
 
 切换 Embedding Provider 或 Embedding 模型后，建议在界面中清空知识库并重新入库，避免向量维度不一致。
 

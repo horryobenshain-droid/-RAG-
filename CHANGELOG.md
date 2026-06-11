@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add `OPENAI_BASE_URL` support for OpenAI-compatible gateway providers.
+
 ## 0.2.0 - 2026-06-11
 
 - Add document registry metadata with document ID, file hash, model config and ingest time.

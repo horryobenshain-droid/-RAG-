@@ -37,6 +37,7 @@
 
 - Embedding：`OPENAI_EMBEDDING_MODEL`。
 - LLM：`OPENAI_CHAT_MODEL`，通过 Responses API 调用。
+- Base URL：可通过 `OPENAI_BASE_URL` 切换到 OpenAI 兼容中转站。
 
 切换 Embedding 模型后需要重建索引，因为不同模型的向量维度可能不同。
 

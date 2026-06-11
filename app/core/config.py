@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     embedding_provider: str = Field(default="demo", pattern="^(demo|openai)$")
 
     openai_api_key: str | None = None
+    openai_base_url: str | None = None
     openai_chat_model: str = "gpt-5.5"
     openai_embedding_model: str = "text-embedding-3-large"
 
