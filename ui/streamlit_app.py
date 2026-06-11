@@ -99,18 +99,89 @@ def inject_styles() -> None:
     st.markdown(
         """
         <style>
-        .block-container {
-            padding-top: 2rem;
-            max-width: 1280px;
+        :root {
+            --app-blue-50: #eef8ff;
+            --app-blue-100: #d9efff;
+            --app-blue-500: #2f9df4;
+            --app-blue-700: #1267b3;
+            --app-cyan-500: #12b7d8;
+            --app-coral-500: #ff6b6b;
+            --app-ink: #12324a;
         }
-        .stChatMessage {
+        .stApp {
+            background:
+                linear-gradient(180deg, #f5fbff 0%, #edf7ff 34%, #f8fbff 100%);
+            color: var(--app-ink);
+        }
+        .block-container {
+            max-width: 1280px;
+            padding-top: 1.8rem;
+            padding-bottom: 3rem;
+        }
+        [data-testid="stSidebar"] {
+            background: linear-gradient(180deg, #eaf6ff 0%, #dff2ff 100%);
+            border-right: 1px solid #bfe2fb;
+        }
+        [data-testid="stSidebar"] * {
+            color: #10354f;
+        }
+        h1 {
+            color: #0b4f8a;
+            letter-spacing: 0;
+        }
+        h2, h3 {
+            color: #125f9c;
+            letter-spacing: 0;
+        }
+        [data-testid="stMetric"] {
+            background: rgba(255, 255, 255, 0.86);
+            border: 1px solid #c8e7fb;
             border-radius: 8px;
+            padding: 0.75rem 0.85rem;
+            box-shadow: 0 8px 24px rgba(47, 157, 244, 0.08);
         }
         [data-testid="stMetricValue"] {
-            font-size: 1.05rem;
+            color: #0b5d9a;
+            font-size: 1.08rem;
         }
-        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-            gap: 0.85rem;
+        [data-testid="stMetricLabel"] {
+            color: #4e7794;
+        }
+        .stButton > button {
+            border-radius: 8px;
+            border-color: #9ed7fb;
+            color: #0f5f9b;
+        }
+        .stButton > button[kind="primary"] {
+            background: linear-gradient(135deg, #2f9df4 0%, #12b7d8 100%);
+            border: none;
+            color: white;
+            box-shadow: 0 8px 18px rgba(18, 103, 179, 0.18);
+        }
+        .stChatMessage {
+            border: 1px solid #d5ebfa;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.78);
+        }
+        [data-testid="stExpander"] {
+            border-color: #c7e5fa;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.72);
+        }
+        [data-testid="stFileUploader"] {
+            background: rgba(255, 255, 255, 0.65);
+            border-radius: 8px;
+        }
+        .doc-row {
+            border: 1px solid #c7e5fa;
+            border-radius: 8px;
+            padding: 0.65rem 0.8rem;
+            background: rgba(255, 255, 255, 0.78);
+            margin-bottom: 0.5rem;
+        }
+        .muted {
+            color: #5d829b;
+            font-size: 0.88rem;
         }
         </style>
         """,
@@ -132,16 +203,14 @@ def render_header() -> None:
     documents = st.session_state.get("documents", [])
     active_documents = [doc for doc in documents if doc.get("status") != "deleted"]
     chunk_total = sum(int(doc.get("chunks_indexed", 0)) for doc in active_documents)
+    model_pair = f"{health.get('llm_provider', '-')}/{health.get('embedding_provider', '-')}"
 
     st.title("本地 RAG 知识库")
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("后端", "在线" if health else "未连接")
-    col2.metric("文档", len(active_documents))
-    col3.metric("片段", chunk_total)
-    col4.metric(
-        "模型",
-        f"{health.get('llm_provider', '-')}/{health.get('embedding_provider', '-')}",
-    )
+    col1.metric("服务状态", "在线" if health else "未连接")
+    col2.metric("文档数量", len(active_documents))
+    col3.metric("知识片段", chunk_total)
+    col4.metric("模型组合", model_pair)
 
 
 def render_sidebar() -> tuple[int, str]:
@@ -151,6 +220,7 @@ def render_sidebar() -> tuple[int, str]:
         if st.button(
             "上传并入库",
             type="primary",
+            icon=":material/upload_file:",
             use_container_width=True,
             disabled=uploaded_file is None,
         ):
@@ -181,12 +251,12 @@ def render_sidebar() -> tuple[int, str]:
         st.subheader("知识库操作")
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("刷新", use_container_width=True):
+            if st.button("刷新", icon=":material/refresh:", use_container_width=True):
                 refresh_documents()
                 refresh_health()
                 st.rerun()
         with col2:
-            if st.button("清空", use_container_width=True):
+            if st.button("清空", icon=":material/delete_sweep:", use_container_width=True):
                 ok, payload = api_delete("/api/documents")
                 if ok:
                     st.success("知识库已清空")
@@ -203,25 +273,31 @@ def render_sidebar() -> tuple[int, str]:
 
 def render_knowledge_base() -> None:
     documents = st.session_state.get("documents", [])
-    with st.expander("知识库文档", expanded=False):
+    with st.expander("知识库文档", expanded=False, icon=":material/folder_open:"):
         if not documents:
             st.info("暂无已入库文档")
             return
 
         for document in documents:
-            col_name, col_meta, col_action = st.columns([4, 3, 1])
-            col_name.markdown(f"**{document['original_file_name']}**")
-            col_meta.caption(
-                f"{document['chunks_indexed']} 片段 · "
-                f"{document['embedding_provider']} / {document['embedding_model']}"
-            )
-            if col_action.button("删除", key=f"delete_{document['document_id']}"):
-                ok, payload = api_delete(f"/api/documents/{document['document_id']}")
-                if ok:
-                    refresh_documents()
-                    st.rerun()
-                else:
-                    st.error(payload)
+            with st.container():
+                col_name, col_meta, col_action = st.columns([4, 3, 1])
+                col_name.markdown(f"**{document['original_file_name']}**")
+                col_meta.caption(
+                    f"{document['chunks_indexed']} 片段 · "
+                    f"{document['embedding_provider']} / {document['embedding_model']}"
+                )
+                if col_action.button(
+                    "删除",
+                    key=f"delete_{document['document_id']}",
+                    icon=":material/delete:",
+                    use_container_width=True,
+                ):
+                    ok, payload = api_delete(f"/api/documents/{document['document_id']}")
+                    if ok:
+                        refresh_documents()
+                        st.rerun()
+                    else:
+                        st.error(payload)
 
 
 def render_chat_history() -> None:
@@ -268,7 +344,7 @@ def handle_question(question: str, top_k: int, answer_mode: str) -> None:
 def render_sources(sources: list[dict[str, Any]]) -> None:
     if not sources:
         return
-    with st.expander("来源诊断", expanded=False):
+    with st.expander("来源诊断", expanded=False, icon=":material/troubleshoot:"):
         for source in sources:
             source_id = source.get("source_id", "?")
             file_name = source.get("file_name", "未知文件")
@@ -329,7 +405,11 @@ def _score_text(score: object, vector_score: object, keyword_score: object) -> s
     return " / ".join(parts) if parts else "相关度未知"
 
 
-st.set_page_config(page_title="本地 RAG 知识库", layout="wide")
+st.set_page_config(
+    page_title="本地 RAG 知识库",
+    page_icon=":material/database:",
+    layout="wide",
+)
 inject_styles()
 init_state()
 top_k_value, answer_mode_value = render_sidebar()
