@@ -31,7 +31,12 @@ def test_openai_llm_uses_configured_base_url(monkeypatch: Any) -> None:
         openai_chat_model="gpt-5.5",
     )
 
-    answer = generate_answer("问题", [Document(page_content="资料", metadata={})], settings)
+    answer = generate_answer(
+        "问题",
+        [Document(page_content="资料", metadata={})],
+        settings,
+        "strict",
+    )
 
     assert answer == "ok"
     assert captured["client"]["base_url"] == "https://gateway.example.com/v1"

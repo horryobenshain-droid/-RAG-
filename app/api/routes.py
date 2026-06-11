@@ -57,7 +57,7 @@ def chat(
 ) -> ChatResponse:
     top_k = request.top_k or settings.default_top_k
     try:
-        result = answer_question(request.question, top_k, settings)
+        result = answer_question(request.question, top_k, settings, request.answer_mode)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -84,6 +84,8 @@ def chat(
         llm_model=result.llm_model,
         embedding_provider=result.embedding_provider,
         embedding_model=result.embedding_model,
+        answer_mode=result.answer_mode,
+        answer_basis=result.answer_basis,
     )
 
 

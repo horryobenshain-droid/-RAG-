@@ -14,6 +14,7 @@ class UploadResponse(BaseModel):
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
     top_k: int | None = Field(default=None, ge=1, le=10)
+    answer_mode: str = Field(default="strict", pattern="^(strict|augmented)$")
 
 
 class Source(BaseModel):
@@ -35,6 +36,8 @@ class ChatResponse(BaseModel):
     llm_model: str
     embedding_provider: str
     embedding_model: str
+    answer_mode: str
+    answer_basis: str
 
 
 class DocumentRecordResponse(BaseModel):

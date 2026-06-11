@@ -8,7 +8,7 @@ from app.core.config import Settings
 from app.core.files import calculate_sha256
 from app.core.registry import DocumentRecord, DocumentRegistry, utc_now
 from app.loaders.local_loader import load_local_file
-from app.rag.llm import generate_answer
+from app.rag.llm import AnswerMode, generate_answer
 from app.rag.splitter import split_documents
 from app.rag.vectorstore import (
     add_documents,
@@ -49,6 +49,8 @@ class AnswerResult:
         llm_model: str,
         embedding_provider: str,
         embedding_model: str,
+        answer_mode: AnswerMode,
+        answer_basis: str,
     ) -> None:
         self.answer = answer
         self.sources = sources
@@ -57,6 +59,8 @@ class AnswerResult:
         self.llm_model = llm_model
         self.embedding_provider = embedding_provider
         self.embedding_model = embedding_model
+        self.answer_mode = answer_mode
+        self.answer_basis = answer_basis
 
 
 def ingest_file(
@@ -111,7 +115,12 @@ def ingest_file(
     )
 
 
-def answer_question(question: str, top_k: int, settings: Settings) -> AnswerResult:
+def answer_question(
+    question: str,
+    top_k: int,
+    settings: Settings,
+    answer_mode: AnswerMode = "strict",
+) -> AnswerResult:
     started_at = perf_counter()
     search_results = similarity_search_with_scores(question, top_k, settings)
     sources = [
@@ -119,7 +128,7 @@ def answer_question(question: str, top_k: int, settings: Settings) -> AnswerResu
         for document, score in search_results
     ]
     documents = [source.document for source in sources]
-    answer = generate_answer(question, documents, settings)
+    answer = generate_answer(question, documents, settings, answer_mode)
     elapsed_ms = (perf_counter() - started_at) * 1000
     return AnswerResult(
         answer=answer,
@@ -129,6 +138,8 @@ def answer_question(question: str, top_k: int, settings: Settings) -> AnswerResu
         llm_model=_llm_model_name(settings),
         embedding_provider=settings.embedding_provider,
         embedding_model=_embedding_model_name(settings),
+        answer_mode=answer_mode,
+        answer_basis=_answer_basis(answer_mode, sources),
     )
 
 
@@ -162,3 +173,11 @@ def _llm_model_name(settings: Settings) -> str:
     if settings.llm_provider == "openai":
         return settings.openai_chat_model
     return "demo-snippet-answer"
+
+
+def _answer_basis(answer_mode: AnswerMode, sources: list[RetrievedSource]) -> str:
+    if answer_mode == "strict":
+        return "knowledge_base"
+    if sources:
+        return "mixed"
+    return "model_prior"
