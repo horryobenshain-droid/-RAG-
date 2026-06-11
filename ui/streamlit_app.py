@@ -34,6 +34,15 @@ SUPPORTED_TYPES = [
     "json",
     "toml",
 ]
+ANSWER_MODES = {
+    "严格知识库": "strict",
+    "知识库增强": "augmented",
+}
+ANSWER_BASIS_LABELS = {
+    "knowledge_base": "知识库",
+    "model_prior": "模型通用知识",
+    "mixed": "知识库 + 模型补充",
+}
 
 
 def api_get(path: str) -> tuple[bool, dict[str, Any] | str]:
@@ -91,14 +100,15 @@ def render_sources(sources: list[dict[str, Any]]) -> None:
             page = f"第 {source['page']} 页" if source.get("page") else "无页码"
             score = source.get("score")
             score_text = f"相关度 {score:.2f}" if isinstance(score, int | float) else "相关度未知"
-            st.markdown(
-                f"**[{source_id}] {file_name} · {page} · {score_text}**"
-            )
+            st.markdown(f"**[{source_id}] {file_name} · {page} · {score_text}**")
             st.caption(source.get("preview", ""))
 
 
 def render_answer_metadata(payload: dict[str, Any]) -> None:
     metadata = []
+    basis = payload.get("answer_basis")
+    if basis:
+        metadata.append(f"依据 {ANSWER_BASIS_LABELS.get(basis, basis)}")
     if payload.get("elapsed_ms") is not None:
         metadata.append(f"耗时 {payload['elapsed_ms']} ms")
     if payload.get("retrieved_chunks") is not None:
@@ -140,6 +150,16 @@ with st.sidebar:
             refresh_documents()
         else:
             st.error(payload)
+
+    st.divider()
+    st.subheader("回答设置")
+    answer_mode_label = st.radio(
+        "回答模式",
+        options=list(ANSWER_MODES.keys()),
+        index=0,
+        horizontal=False,
+    )
+    answer_mode = ANSWER_MODES[answer_mode_label]
 
     st.divider()
     st.subheader("检索设置")
@@ -190,6 +210,7 @@ with st.sidebar:
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+        render_answer_metadata(message.get("metadata", {}))
         render_sources(message.get("sources", []))
 
 question = st.chat_input("请输入问题")
@@ -203,17 +224,23 @@ if question:
         with st.spinner("正在检索知识库并生成回答..."):
             ok, payload = api_post(
                 "/api/chat",
-                json={"question": question, "top_k": top_k},
+                json={
+                    "question": question,
+                    "top_k": top_k,
+                    "answer_mode": answer_mode,
+                },
             )
         if ok and isinstance(payload, dict):
-            st.markdown(payload.get("answer", "后端未返回回答内容。"))
+            answer = payload.get("answer", "后端未返回回答内容。")
+            st.markdown(answer)
             render_answer_metadata(payload)
             render_sources(payload.get("sources", []))
             st.session_state.messages.append(
                 {
                     "role": "assistant",
-                    "content": payload.get("answer", "后端未返回回答内容。"),
+                    "content": answer,
                     "sources": payload.get("sources", []),
+                    "metadata": payload,
                 }
             )
         else:
