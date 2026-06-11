@@ -48,6 +48,12 @@ uvicorn app.main:app --reload --port 8000
 streamlit run ui/streamlit_app.py
 ```
 
+Windows 一键启动：
+
+```powershell
+.\start.ps1
+```
+
 访问：
 
 - 前端界面：<http://127.0.0.1:8501>
