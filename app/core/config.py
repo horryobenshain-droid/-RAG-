@@ -15,12 +15,13 @@ class Settings(BaseSettings):
     api_port: int = 8000
 
     llm_provider: str = Field(default="demo", pattern="^(demo|openai)$")
-    embedding_provider: str = Field(default="demo", pattern="^(demo|openai)$")
+    embedding_provider: str = Field(default="demo", pattern="^(demo|openai|local)$")
 
     openai_api_key: str | None = None
     openai_base_url: str | None = None
     openai_chat_model: str = "gpt-5.5"
     openai_embedding_model: str = "text-embedding-3-large"
+    local_embedding_model: str = "BAAI/bge-small-zh-v1.5"
 
     chroma_collection: str = "local_rag_knowledge"
     chunk_size: int = 900

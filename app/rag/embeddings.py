@@ -33,6 +33,14 @@ class HashEmbeddings(Embeddings):
 
 
 def get_embeddings(settings: Settings) -> Embeddings:
+    if settings.embedding_provider == "local":
+        from langchain_huggingface import HuggingFaceEmbeddings
+
+        return HuggingFaceEmbeddings(
+            model_name=settings.local_embedding_model,
+            encode_kwargs={"normalize_embeddings": True},
+        )
+
     if settings.embedding_provider == "openai":
         if not settings.openai_api_key:
             msg = "OPENAI_API_KEY is required when EMBEDDING_PROVIDER=openai."

@@ -164,6 +164,8 @@ def clear_knowledge_base(settings: Settings) -> tuple[int, int]:
 
 
 def _embedding_model_name(settings: Settings) -> str:
+    if settings.embedding_provider == "local":
+        return settings.local_embedding_model
     if settings.embedding_provider == "openai":
         return settings.openai_embedding_model
     return "hash-embeddings"
