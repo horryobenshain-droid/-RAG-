@@ -70,6 +70,7 @@ def ingest_file(
     settings: Settings,
     original_file_name: str | None = None,
 ) -> IngestResult:
+    _ensure_embedding_config_matches_active_documents(settings)
     documents = load_local_file(path)
     document_id = uuid4().hex
     file_hash = calculate_sha256(path)
@@ -124,6 +125,7 @@ def answer_question(
     answer_mode: AnswerMode = "strict",
 ) -> AnswerResult:
     started_at = perf_counter()
+    _ensure_embedding_config_matches_active_documents(settings)
     search_results = similarity_search_with_scores(question, top_k, settings)
     reranked_results = rerank_with_keywords(question, search_results, top_k)
     sources = [
@@ -182,6 +184,43 @@ def _llm_model_name(settings: Settings) -> str:
     if settings.llm_provider == "openai":
         return settings.openai_chat_model
     return "demo-snippet-answer"
+
+
+def _ensure_embedding_config_matches_active_documents(settings: Settings) -> None:
+    registry = DocumentRegistry(settings.registry_path)
+    active_documents = registry.list_documents(include_deleted=False)
+    if not active_documents:
+        return
+
+    current_provider = settings.embedding_provider
+    current_model = _embedding_model_name(settings)
+    mismatched_documents = [
+        document
+        for document in active_documents
+        if document.get("embedding_provider") != current_provider
+        or document.get("embedding_model") != current_model
+    ]
+    if not mismatched_documents:
+        return
+
+    examples = "、".join(
+        str(document.get("original_file_name", "未知文档"))
+        for document in mismatched_documents[:3]
+    )
+    if len(mismatched_documents) > 3:
+        examples += f" 等 {len(mismatched_documents)} 个文档"
+
+    first = mismatched_documents[0]
+    indexed_provider = first.get("embedding_provider", "unknown")
+    indexed_model = first.get("embedding_model", "unknown")
+    msg = (
+        "当前知识库索引的 Embedding 配置与当前系统配置不一致，检索结果不可靠。\n"
+        f"当前配置：{current_provider}/{current_model}。\n"
+        f"知识库索引：{indexed_provider}/{indexed_model}。\n"
+        f"不匹配文档：{examples}。\n"
+        "请先清空知识库，并在当前配置下重新上传文档。"
+    )
+    raise ValueError(msg)
 
 
 def _answer_basis(answer_mode: AnswerMode, sources: list[RetrievedSource]) -> str:
