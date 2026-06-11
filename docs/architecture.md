@@ -6,13 +6,15 @@
 2. 后端保存文件并计算 SHA256 哈希。
 3. Loader 将 PDF、Word、文本或代码文件转换为 LangChain `Document`。
 4. Splitter 将文档切分为 chunk，并写入 `document_id`、页码、文件名、入库时间等元数据。
-5. Embedding Provider 将 chunk 转成向量。
-6. Chroma 将向量和元数据持久化到 `data/chroma/`。
-7. 文档注册表将文件级生命周期信息写入 `data/registry.json`。
-8. 用户提问时，Retriever 召回 top-k 片段并返回相关度分数。
-9. Answer Policy 根据回答模式选择严格知识库 Prompt 或增强 Prompt。
-10. LLM 根据检索片段、Prompt 和回答模式生成回答。
-11. API 返回回答、来源、相关度、耗时、模型配置和答案依据。
+5. 对代码文件，Code Splitter 按函数/类/行号生成更适合检索的 chunk。
+6. Embedding Provider 将 chunk 转成向量。
+7. Chroma 将向量和元数据持久化到 `data/chroma/`。
+8. 文档注册表将文件级生命周期信息写入 `data/registry.json`。
+9. 用户提问时，Retriever 先扩大召回候选片段。
+10. Hybrid Reranker 根据向量分、关键词命中、文件名和函数名命中重排。
+11. Answer Policy 根据回答模式选择严格知识库 Prompt 或增强 Prompt。
+12. LLM 根据检索片段、Prompt 和回答模式生成回答。
+13. API 返回回答、来源、相关度、命中词、代码行号、耗时、模型配置和答案依据。
 
 ## 模块
 
@@ -23,6 +25,8 @@
 - `app/loaders/local_loader.py`：PDF、Word、文本和代码文件加载。
 - `app/rag/embeddings.py`：demo 哈希向量与 OpenAI Embeddings 适配。
 - `app/rag/embeddings.py`：demo 哈希向量、OpenAI Embeddings、本地 HuggingFace Embeddings。
+- `app/rag/code_splitter.py`：代码函数/类/行号切分。
+- `app/rag/hybrid_retriever.py`：向量与关键词混合重排。
 - `app/rag/vectorstore.py`：Chroma 初始化、检索、删除和重置。
 - `app/rag/llm.py`：Prompt 构造和 OpenAI Responses API 调用。
 - `app/rag/service.py`：入库、问答和知识库管理业务逻辑。

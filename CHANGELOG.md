@@ -4,6 +4,14 @@
 
 - Add `OPENAI_BASE_URL` support for OpenAI-compatible gateway providers.
 
+## 0.4.0 - 2026-06-11
+
+- Add code-aware chunking with language, symbol and line-range metadata.
+- Add hybrid reranking with vector, keyword, filename and symbol signals.
+- Return retrieval diagnostics including matched keywords and score breakdowns.
+- Show retrieval diagnostics in the Streamlit source panel.
+- Improve algorithm-template prompting for code answers.
+
 ## 0.3.0 - 2026-06-11
 
 - Add strict and augmented answer modes.

@@ -4,7 +4,7 @@
 
 ## 当前版本
 
-`v0.3.0` 已完成回答策略层和本地中文 Embedding：
+`v0.4.0` 已完成代码感知检索与诊断能力：
 
 - 文档上传、解析、切分与 Chroma 向量入库。
 - 文档注册表：记录 `document_id`、文件哈希、入库时间、chunk 数、模型配置。
@@ -13,6 +13,9 @@
 - 防幻觉 Prompt：要求模型只基于检索片段回答，信息不足时明确说明。
 - 回答模式：支持“严格知识库”和“知识库增强”两种策略。
 - 本地 Embedding：支持 `BAAI/bge-small-zh-v1.5`，适合中文语义检索。
+- 代码感知切分：对代码文件记录语言、函数名、起止行号。
+- 混合检索：结合向量分、关键词命中、文件名和函数名命中重排结果。
+- 检索诊断：来源片段展示综合分、向量分、关键词分和命中词。
 - 简体中文 Streamlit 界面。
 - demo / OpenAI 两种 provider 模式。
 
@@ -116,6 +119,10 @@ curl -X POST http://127.0.0.1:8000/api/chat `
 
 - `answer`：回答内容。
 - `sources`：来源文件、页码、chunk、相关度分数和片段预览。
+- `sources[].vector_score`：原始向量相关度。
+- `sources[].keyword_score`：关键词命中分。
+- `sources[].matched_keywords`：命中的关键词。
+- `sources[].symbol_name` / `start_line` / `end_line`：代码片段定位信息。
 - `answer_mode`：回答模式，`strict` 或 `augmented`。
 - `answer_basis`：答案依据，`knowledge_base`、`model_prior` 或 `mixed`。
 - `elapsed_ms`：检索与生成耗时。
@@ -159,7 +166,7 @@ pytest -q
 - `v0.1.0`：项目骨架、上传接口、基础 RAG 闭环、Streamlit 页面。
 - `v0.2.0`：文档注册表、知识库管理、检索分数、耗时统计、中文界面。
 - `v0.3.0`：回答模式、本地中文 Embedding、答案依据标记。
-- `v0.4.0`：代码库专用 RAG，支持 zip 上传、路径过滤、函数/类级 chunk。
+- `v0.4.0`：代码感知切分、混合检索、来源诊断。
 - `v0.5.0`：接入 Ollama，支持 Qwen / Llama 本地模型。
 - `v1.0.0`：评估集、Prompt 版本管理、架构图、演示截图和部署文档。
 
