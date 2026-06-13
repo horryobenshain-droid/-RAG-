@@ -1,5 +1,6 @@
 from typing import Literal
 
+import requests
 from langchain_core.documents import Document
 
 from app.core.config import Settings
@@ -64,6 +65,8 @@ def generate_answer(
     context = build_context(documents)
     if settings.llm_provider == "openai":
         return _generate_with_openai(question, context, settings, answer_mode)
+    if settings.llm_provider == "ollama":
+        return _generate_with_ollama(question, context, settings, answer_mode)
 
     return _generate_demo_answer(question, documents, answer_mode)
 
@@ -97,6 +100,68 @@ def _build_openai_input(question: str, context_text: str, answer_mode: AnswerMod
     if answer_mode == "augmented":
         return f"{AUGMENTED_USER_GUIDE}\n\n检索片段：\n{context_text}\n\n用户问题：{question}"
     return f"检索片段：\n{context_text}\n\n用户问题：{question}"
+
+
+def _generate_with_ollama(
+    question: str,
+    context: str,
+    settings: Settings,
+    answer_mode: AnswerMode,
+) -> str:
+    prompt = STRICT_SYSTEM_PROMPT if answer_mode == "strict" else AUGMENTED_SYSTEM_PROMPT
+    context_text = context or "当前没有检索到可用知识库片段。"
+    payload = {
+        "model": settings.ollama_chat_model,
+        "stream": False,
+        "messages": [
+            {"role": "system", "content": prompt},
+            {
+                "role": "user",
+                "content": _build_ollama_user_message(question, context_text, answer_mode),
+            },
+        ],
+        "options": {
+            "temperature": settings.ollama_temperature,
+            "num_ctx": settings.ollama_num_ctx,
+        },
+    }
+
+    chat_url = _ollama_chat_url(settings.ollama_base_url)
+    try:
+        response = requests.post(
+            chat_url,
+            json=payload,
+            timeout=settings.ollama_timeout_seconds,
+        )
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        msg = (
+            "调用 Ollama 失败，请确认 Ollama 已启动且模型已拉取。\n"
+            f"地址：{chat_url}\n"
+            f"模型：{settings.ollama_chat_model}\n"
+            f"错误：{exc}"
+        )
+        raise ValueError(msg) from exc
+
+    data = response.json()
+    content = data.get("message", {}).get("content")
+    if not content:
+        msg = "Ollama 未返回有效回答内容。"
+        raise ValueError(msg)
+    return str(content).strip()
+
+
+def _build_ollama_user_message(question: str, context_text: str, answer_mode: AnswerMode) -> str:
+    if answer_mode == "augmented":
+        return f"{AUGMENTED_USER_GUIDE}\n\n检索片段：\n{context_text}\n\n用户问题：{question}"
+    return f"检索片段：\n{context_text}\n\n用户问题：{question}"
+
+
+def _ollama_chat_url(base_url: str) -> str:
+    normalized = base_url.rstrip("/")
+    if normalized.endswith("/api"):
+        return f"{normalized}/chat"
+    return f"{normalized}/api/chat"
 
 
 def _generate_demo_answer(

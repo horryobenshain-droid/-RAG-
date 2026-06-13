@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- No unreleased changes yet.
+
+## 0.5.0 - 2026-06-13
+
+- Add Ollama LLM provider using the local `/api/chat` endpoint.
+- Support Qwen and Llama local chat models through `OLLAMA_CHAT_MODEL`.
+- Add Ollama runtime settings for base URL, temperature, context length and timeout.
+- Return the active Ollama model in chat responses and health metadata.
+- Document local Ollama setup with Qwen and Llama examples.
+
+## 0.4.1 - 2026-06-11
+
 - Add `OPENAI_BASE_URL` support for OpenAI-compatible gateway providers.
 
 ## 0.4.0 - 2026-06-11

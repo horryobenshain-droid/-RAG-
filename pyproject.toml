@@ -1,6 +1,6 @@
 [project]
 name = "local-rag-knowledge-base"
-version = "0.1.0"
+version = "0.5.0"
 description = "A local RAG knowledge base system built with FastAPI, LangChain and Chroma."
 readme = "README.md"
 requires-python = ">=3.11"

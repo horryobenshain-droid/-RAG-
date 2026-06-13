@@ -14,13 +14,20 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8000
 
-    llm_provider: str = Field(default="demo", pattern="^(demo|openai)$")
+    llm_provider: str = Field(default="demo", pattern="^(demo|openai|ollama)$")
     embedding_provider: str = Field(default="demo", pattern="^(demo|openai|local)$")
 
     openai_api_key: str | None = None
     openai_base_url: str | None = None
     openai_chat_model: str = "gpt-5.5"
     openai_embedding_model: str = "text-embedding-3-large"
+
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    ollama_chat_model: str = "qwen2.5:7b"
+    ollama_temperature: float = Field(default=0.2, ge=0)
+    ollama_num_ctx: int = Field(default=8192, gt=0)
+    ollama_timeout_seconds: float = Field(default=120.0, gt=0)
+
     local_embedding_model: str = "BAAI/bge-small-zh-v1.5"
 
     chroma_collection: str = "local_rag_knowledge"

@@ -34,19 +34,19 @@
 - 来源诊断展示综合分、向量分、关键词分和命中词。
 - 算法模板 Prompt 优化。
 
-## v0.5.0 - 代码库批量上传
+## v0.5.0 - 本地模型支持
+
+- Ollama provider adapter。
+- Qwen / Llama 模型预设。
+- Ollama base URL、模型名、temperature、context length、timeout 可配置。
+- 支持“本地 LLM + 本地 Embedding”的离线知识库问答组合。
+
+## v0.6.0 - 代码库批量上传
 
 - 支持 zip 上传和批量文件解析。
 - 忽略二进制、依赖目录和构建产物。
 - 保留目录路径作为来源信息。
 - 增加代码问答测试集。
-
-## v0.6.0 - 本地模型支持
-
-- Ollama provider adapter。
-- Qwen / Llama 模型预设。
-- 本地 embedding 模型选项。
-- OpenAI 与本地模型效果对比文档。
 
 ## v0.7.0 - RAG 质量优化
 

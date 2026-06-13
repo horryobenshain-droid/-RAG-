@@ -23,7 +23,6 @@
 - `app/core/files.py`：文件名清洗、上传保存、哈希计算。
 - `app/core/registry.py`：本地 JSON 文档注册表。
 - `app/loaders/local_loader.py`：PDF、Word、文本和代码文件加载。
-- `app/rag/embeddings.py`：demo 哈希向量与 OpenAI Embeddings 适配。
 - `app/rag/embeddings.py`：demo 哈希向量、OpenAI Embeddings、本地 HuggingFace Embeddings。
 - `app/rag/code_splitter.py`：代码函数/类/行号切分。
 - `app/rag/hybrid_retriever.py`：向量与关键词混合重排。
@@ -44,6 +43,14 @@
 - Embedding：`OPENAI_EMBEDDING_MODEL`。
 - LLM：`OPENAI_CHAT_MODEL`，通过 Responses API 调用。
 - Base URL：可通过 `OPENAI_BASE_URL` 切换到 OpenAI 兼容中转站。
+
+`ollama` 模式用于本地大模型问答：
+
+- LLM：`OLLAMA_CHAT_MODEL`，例如 `qwen2.5:7b` 或 `llama3.1:8b`。
+- Base URL：默认 `http://127.0.0.1:11434`。
+- 调用方式：Ollama `/api/chat`，非流式返回。
+- 运行前需要启动 Ollama 并提前 `ollama pull` 对应模型。
+- Ollama 只负责生成回答，Embedding Provider 可继续使用 `demo`、`openai` 或 `local`。
 
 切换 Embedding 模型后需要重建索引，因为不同模型的向量维度可能不同。
 

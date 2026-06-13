@@ -4,7 +4,7 @@
 
 ## 当前版本
 
-`v0.4.0` 已完成代码感知检索与诊断能力：
+`v0.5.0` 已接入 Ollama，可使用 Qwen / Llama 本地模型完成知识库问答：
 
 - 文档上传、解析、切分与 Chroma 向量入库。
 - 文档注册表：记录 `document_id`、文件哈希、入库时间、chunk 数、模型配置。
@@ -17,7 +17,7 @@
 - 混合检索：结合向量分、关键词命中、文件名和函数名命中重排结果。
 - 检索诊断：来源片段展示综合分、向量分、关键词分和命中词。
 - 简体中文 Streamlit 界面。
-- demo / OpenAI 两种 provider 模式。
+- demo / OpenAI / Ollama 三种 LLM provider 模式。
 
 ## 技术栈
 
@@ -27,6 +27,7 @@
 - LangChain Core / Text Splitters
 - Chroma
 - OpenAI Responses API / OpenAI Embeddings
+- Ollama 本地 Chat API
 - Sentence Transformers / HuggingFace Embeddings
 - PyPDF / docx2txt
 
@@ -96,6 +97,29 @@ EMBEDDING_PROVIDER=local
 
 这样可以使用中转站 GPT-5.5 生成答案，同时用本地中文 Embedding 做向量检索。
 
+要启用 Ollama 本地模型，请先启动 Ollama 并拉取模型：
+
+```powershell
+ollama pull qwen2.5:7b
+# 或者
+ollama pull llama3.1:8b
+```
+
+然后编辑 `.env`：
+
+```env
+LLM_PROVIDER=ollama
+EMBEDDING_PROVIDER=local
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_CHAT_MODEL=qwen2.5:7b
+OLLAMA_TEMPERATURE=0.2
+OLLAMA_NUM_CTX=8192
+OLLAMA_TIMEOUT_SECONDS=120
+LOCAL_EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5
+```
+
+如需切换到 Llama，将 `OLLAMA_CHAT_MODEL` 改为已拉取的模型名，例如 `llama3.1:8b`。Ollama 只负责生成回答，向量检索仍建议使用 `EMBEDDING_PROVIDER=local`。
+
 切换 Embedding Provider 或 Embedding 模型后，建议在界面中清空知识库并重新入库，避免向量维度不一致。
 
 ## API
@@ -126,7 +150,7 @@ curl -X POST http://127.0.0.1:8000/api/chat `
 - `answer_mode`：回答模式，`strict` 或 `augmented`。
 - `answer_basis`：答案依据，`knowledge_base`、`model_prior` 或 `mixed`。
 - `elapsed_ms`：检索与生成耗时。
-- `llm_provider` / `llm_model`：当前回答模型配置。
+- `llm_provider` / `llm_model`：当前回答模型配置，支持 `demo`、`openai`、`ollama`。
 - `embedding_provider` / `embedding_model`：当前向量模型配置。
 
 ## 目录结构
@@ -168,6 +192,7 @@ pytest -q
 - `v0.3.0`：回答模式、本地中文 Embedding、答案依据标记。
 - `v0.4.0`：代码感知切分、混合检索、来源诊断。
 - `v0.5.0`：接入 Ollama，支持 Qwen / Llama 本地模型。
+- `v0.6.0`：代码库 zip 上传、批量文件解析、目录路径来源信息。
 - `v1.0.0`：评估集、Prompt 版本管理、架构图、演示截图和部署文档。
 
 ## Git 工作流

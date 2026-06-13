@@ -419,7 +419,12 @@ def render_header() -> None:
     documents = st.session_state.get("documents", [])
     active_documents = [doc for doc in documents if doc.get("status") != "deleted"]
     chunk_total = sum(int(doc.get("chunks_indexed", 0)) for doc in active_documents)
-    model_pair = f"{health.get('llm_provider', '-')}/{health.get('embedding_provider', '-')}"
+    llm_label = _provider_model_label(health.get("llm_provider"), health.get("llm_model"))
+    embedding_label = _provider_model_label(
+        health.get("embedding_provider"),
+        health.get("embedding_model"),
+    )
+    model_pair = f"{llm_label} · {embedding_label}"
 
     status_label = "服务在线" if health else "等待后端"
     st.markdown(
@@ -495,6 +500,12 @@ def render_sidebar() -> tuple[int, str]:
             st.error(st.session_state.document_error)
 
     return top_k, answer_mode
+
+
+def _provider_model_label(provider: object, model: object) -> str:
+    provider_text = str(provider) if provider else "-"
+    model_text = str(model) if model else "-"
+    return f"{provider_text}/{model_text}"
 
 
 def render_knowledge_base() -> None:

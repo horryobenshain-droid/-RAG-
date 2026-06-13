@@ -183,6 +183,8 @@ def _embedding_model_name(settings: Settings) -> str:
 def _llm_model_name(settings: Settings) -> str:
     if settings.llm_provider == "openai":
         return settings.openai_chat_model
+    if settings.llm_provider == "ollama":
+        return settings.ollama_chat_model
     return "demo-snippet-answer"
 
 
