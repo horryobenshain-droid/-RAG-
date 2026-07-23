@@ -37,11 +37,11 @@ def _render_markdown(run: EvaluationRun) -> str:
         f"- 生成时间：`{run.generated_at}`",
         top_k_line,
         "",
-        "## 模型对比",
+        "## 配置对比",
         "",
-        "| Profile | Provider / Model | 通过率 | Recall@K | 引用命中率 | "
+        "| Profile | Provider / Model | 检索配置 | 通过率 | Recall@K | 引用命中率 | "
         "答案关键词召回率 | 平均延迟 | P95 延迟 | 错误 |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for profile in run.profiles:
         summary = profile.summary
@@ -49,6 +49,7 @@ def _render_markdown(run: EvaluationRun) -> str:
             "| "
             f"{_table_cell(profile.profile_name)} | "
             f"{_table_cell(f'{profile.llm_provider} / {profile.llm_model}')} | "
+            f"{_table_cell(_retrieval_label(profile))} | "
             f"{_percent(summary.pass_rate)} | "
             f"{_percent(summary.recall_at_k)} | "
             f"{_percent(summary.citation_hit_rate)} | "
@@ -70,6 +71,7 @@ def _render_profile(profile: ProfileEvaluationResult) -> list[str]:
         f"## {_heading(profile.profile_name)}",
         "",
         f"模型：`{profile.llm_provider} / {profile.llm_model}`  ",
+        f"检索：`{_retrieval_label(profile)}`  ",
         f"开始时间：`{profile.started_at}`  ",
         f"总耗时：`{profile.duration_ms:.2f} ms`",
         "",
@@ -111,34 +113,53 @@ def _render_case(case: EvaluationCaseResult) -> list[str]:
         missing = ", ".join(f"`{keyword}`" for keyword in case.missing_answer_keywords)
         lines.extend(["", f"**缺失关键词：** {missing}"])
     if case.matched_forbidden_keywords:
-        forbidden = ", ".join(
-            f"`{keyword}`" for keyword in case.matched_forbidden_keywords
-        )
+        forbidden = ", ".join(f"`{keyword}`" for keyword in case.matched_forbidden_keywords)
         lines.extend(["", f"**命中禁用词：** {forbidden}"])
+
+    if case.retrieval_strategy:
+        timing = " / ".join(
+            value
+            for value in (
+                _timing_part("检索", case.retrieval_ms),
+                _timing_part("重排", case.reranking_ms),
+                _timing_part("生成", case.generation_ms),
+            )
+            if value
+        )
+        lines.extend(
+            [
+                "",
+                f"**检索诊断：** `{case.retrieval_strategy}`，"
+                f"候选 `{case.candidate_count or 0}`，{timing or '无分阶段耗时'}",
+            ]
+        )
 
     lines.extend(
         [
             "",
             "**检索来源：**",
             "",
-            "| # | 文件 | Chunk | Symbol | Score | 命中词 |",
-            "| ---: | --- | --- | --- | ---: | --- |",
+            "| # | 初排 | 文件 | Chunk | Symbol | 综合分 | 向量分 | Reranker | 命中原因 |",
+            "| ---: | ---: | --- | --- | --- | ---: | ---: | ---: | --- |",
         ]
     )
     if case.sources:
         for source in case.sources:
-            keywords = ", ".join(source.matched_keywords) or "-"
+            reasons = "；".join(source.reasons) or "-"
             lines.append(
                 "| "
                 f"{source.source_id} | "
+                f"{_table_cell(source.retrieval_rank)} | "
                 f"{_table_cell(source.file_name)} | "
                 f"{_table_cell(source.chunk_id)} | "
                 f"{_table_cell(source.symbol_name)} | "
                 f"{_decimal(source.score)} | "
-                f"{_table_cell(keywords)} |"
+                f"{_decimal(source.vector_score)} | "
+                f"{_decimal(source.reranker_score)} | "
+                f"{_table_cell(reasons)} |"
             )
     else:
-        lines.append("| - | - | - | - | - | - |")
+        lines.append("| - | - | - | - | - | - | - | - | - |")
 
     lines.extend(
         [
@@ -163,6 +184,21 @@ def _summary_line(summary: EvaluationSummary) -> str:
         f"Recall@K `{_percent(summary.recall_at_k)}`，"
         f"引用命中率 `{_percent(summary.citation_hit_rate)}`。"
     )
+
+
+def _retrieval_label(profile: ProfileEvaluationResult) -> str:
+    reranker = (
+        profile.reranker_model or "cross_encoder"
+        if profile.reranker_provider == "cross_encoder"
+        else "关闭 Reranker"
+    )
+    return f"{profile.retrieval_strategy}, fetch_k={profile.retrieval_fetch_k}, {reranker}"
+
+
+def _timing_part(label: str, value: float | None) -> str:
+    if value is None:
+        return ""
+    return f"{label} {value:.2f} ms"
 
 
 def _percent(value: float | None) -> str:

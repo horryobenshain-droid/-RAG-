@@ -22,6 +22,9 @@ def test_hybrid_rerank_boosts_keyword_and_symbol_matches() -> None:
     assert results[0][0] is weak_vector_good_keyword
     assert "qmi" in results[0][1].matched_keywords
     assert results[0][1].final_score > results[1][1].final_score
+    assert results[0][1].retrieval_rank == 2
+    assert "文件名与问题匹配" in results[0][1].reasons
+    assert "代码符号与问题匹配" in results[0][1].reasons
 
 
 def test_hybrid_rerank_distinguishes_modular_from_matrix_power() -> None:

@@ -37,6 +37,20 @@ def test_model_profile_rejects_secrets_and_embedding_changes() -> None:
         )
 
 
+def test_model_profile_allows_retrieval_and_reranker_comparison() -> None:
+    profile = ModelProfile(
+        name="mmr-reranker",
+        overrides={
+            "retrieval_strategy": "mmr",
+            "retrieval_fetch_k": 30,
+            "reranker_provider": "cross_encoder",
+            "reranker_weight": 0.7,
+        },
+    )
+
+    assert profile.overrides["retrieval_strategy"] == "mmr"
+
+
 def test_load_evaluation_files(tmp_path: Path) -> None:
     dataset_path = tmp_path / "dataset.json"
     dataset_path.write_text(

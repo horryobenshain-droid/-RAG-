@@ -36,8 +36,7 @@ def evaluate_dataset(
         raise ValueError(msg)
 
     profile_results = [
-        _evaluate_profile(dataset, profile, base_settings, top_k_override)
-        for profile in profiles
+        _evaluate_profile(dataset, profile, base_settings, top_k_override) for profile in profiles
     ]
     return EvaluationRun(
         dataset_name=dataset.name,
@@ -57,10 +56,7 @@ def _evaluate_profile(
     settings = _profile_settings(base_settings, profile)
     started_at = _utc_now()
     started = perf_counter()
-    results = [
-        _evaluate_case(case, settings, top_k_override)
-        for case in dataset.cases
-    ]
+    results = [_evaluate_case(case, settings, top_k_override) for case in dataset.cases]
     duration_ms = (perf_counter() - started) * 1000
     return ProfileEvaluationResult(
         profile_name=profile.name,
@@ -70,6 +66,12 @@ def _evaluate_profile(
         duration_ms=round(duration_ms, 2),
         summary=_summarize(results),
         cases=results,
+        retrieval_strategy=settings.retrieval_strategy,
+        retrieval_fetch_k=settings.retrieval_fetch_k,
+        reranker_provider=settings.reranker_provider,
+        reranker_model=(
+            settings.reranker_model if settings.reranker_provider == "cross_encoder" else None
+        ),
     )
 
 
@@ -100,8 +102,7 @@ def _evaluate_case(
         )
 
     sources = [
-        _evaluated_source(index, source)
-        for index, source in enumerate(result.sources, start=1)
+        _evaluated_source(index, source) for index, source in enumerate(result.sources, start=1)
     ]
     recall_at_k = _recall_at_k(case.expected_sources, sources)
     citation_hit = _citation_hit(
@@ -136,6 +137,11 @@ def _evaluate_case(
         answer_keyword_recall=keyword_recall,
         missing_answer_keywords=missing_keywords,
         matched_forbidden_keywords=forbidden_keywords,
+        retrieval_strategy=result.retrieval_strategy,
+        candidate_count=result.candidate_count,
+        retrieval_ms=round(result.retrieval_ms, 2),
+        reranking_ms=round(result.reranking_ms, 2),
+        generation_ms=round(result.generation_ms, 2),
     )
 
 
@@ -158,7 +164,12 @@ def _evaluated_source(source_id: int, source: RetrievedSource) -> EvaluatedSourc
         score=source.score,
         vector_score=source.hybrid_score.vector_score,
         keyword_score=source.hybrid_score.keyword_score,
+        filename_score=source.hybrid_score.filename_score,
+        symbol_score=source.hybrid_score.symbol_score,
+        reranker_score=source.hybrid_score.reranker_score,
+        retrieval_rank=source.hybrid_score.retrieval_rank,
         matched_keywords=source.hybrid_score.matched_keywords,
+        reasons=source.hybrid_score.reasons,
         preview=source.document.page_content.strip()[:300],
     )
 

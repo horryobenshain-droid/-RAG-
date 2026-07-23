@@ -1,5 +1,5 @@
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from langchain_core.documents import Document
 
@@ -12,6 +12,9 @@ class HybridScore:
     symbol_score: float
     final_score: float
     matched_keywords: list[str]
+    retrieval_rank: int = 0
+    reranker_score: float | None = None
+    reasons: list[str] = field(default_factory=list)
 
 
 ASCII_TOKEN_PATTERN = re.compile(r"[A-Za-z_]\w*|\d+")
@@ -40,11 +43,17 @@ def rerank_with_keywords(
     question: str,
     results: list[tuple[Document, float | None]],
     top_k: int,
+    *,
+    vector_weight: float = 0.45,
+    keyword_weight: float = 0.4,
+    filename_weight: float = 0.1,
+    symbol_weight: float = 0.05,
+    retrieval_strategy: str = "similarity",
 ) -> list[tuple[Document, HybridScore]]:
     question_tokens = _question_tokens(question)
     scored = []
 
-    for document, vector_score in results:
+    for retrieval_rank, (document, vector_score) in enumerate(results, start=1):
         keyword_score, matched_keywords = _keyword_score(question_tokens, document.page_content)
         filename_score = _metadata_score(
             question_tokens,
@@ -53,10 +62,17 @@ def rerank_with_keywords(
         symbol_score = _metadata_score(question_tokens, document.metadata.get("symbol_name"))
         normalized_vector = vector_score if vector_score is not None else 0.0
         final_score = (
-            normalized_vector * 0.45
-            + keyword_score * 0.4
-            + filename_score * 0.1
-            + symbol_score * 0.05
+            normalized_vector * vector_weight
+            + keyword_score * keyword_weight
+            + filename_score * filename_weight
+            + symbol_score * symbol_weight
+        )
+        reasons = _hit_reasons(
+            vector_score,
+            matched_keywords,
+            filename_score,
+            symbol_score,
+            retrieval_strategy,
         )
         scored.append(
             (
@@ -68,12 +84,35 @@ def rerank_with_keywords(
                     symbol_score=symbol_score,
                     final_score=round(final_score, 4),
                     matched_keywords=matched_keywords,
+                    retrieval_rank=retrieval_rank,
+                    reasons=reasons,
                 ),
             )
         )
 
     scored.sort(key=lambda item: item[1].final_score, reverse=True)
     return scored[:top_k]
+
+
+def _hit_reasons(
+    vector_score: float | None,
+    matched_keywords: list[str],
+    filename_score: float,
+    symbol_score: float,
+    retrieval_strategy: str,
+) -> list[str]:
+    reasons = []
+    if vector_score is not None:
+        reasons.append(f"向量相关度 {vector_score:.2f}")
+    if matched_keywords:
+        reasons.append(f"关键词命中：{', '.join(matched_keywords)}")
+    if filename_score > 0:
+        reasons.append("文件名与问题匹配")
+    if symbol_score > 0:
+        reasons.append("代码符号与问题匹配")
+    if retrieval_strategy == "mmr":
+        reasons.append("MMR 多样性候选")
+    return reasons or ["向量检索候选"]
 
 
 def _keyword_score(question_tokens: set[str], content: str) -> tuple[float, list[str]]:
@@ -102,8 +141,7 @@ def _tokens(text: str) -> set[str]:
             tokens.add(sequence)
         for size in range(2, min(4, len(sequence)) + 1):
             tokens.update(
-                sequence[index : index + size]
-                for index in range(len(sequence) - size + 1)
+                sequence[index : index + size] for index in range(len(sequence) - size + 1)
             )
     return tokens
 

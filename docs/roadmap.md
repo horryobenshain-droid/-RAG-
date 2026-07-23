@@ -49,13 +49,13 @@
 - 已支持通过 profile 对比 OpenAI、Ollama Qwen 和 Ollama Llama。
 - 已生成 Markdown 与 JSON 双格式报告，并提供可复现的示例语料。
 
-## v0.7.0 - RAG 质量优化
+## v0.7.0 - RAG 质量优化（已完成）
 
-- Reranker 接入。
-- MMR / similarity 检索策略切换。
-- `top_k`、`fetch_k`、`chunk_size`、`chunk_overlap` 等参数配置化。
-- 增强检索诊断，展示每个来源被命中的原因。
-- 基于 v0.6.0 评估结果优化 chunk 策略、重排权重和 Prompt。
+- 已接入可选 CrossEncoder Reranker，并采用懒加载避免默认下载模型。
+- 已支持 similarity / MMR 全局配置和单次问答策略切换。
+- 已配置化 `top_k`、`fetch_k`、`chunk_size`、`chunk_overlap`、MMR 与混合重排权重。
+- 已增强来源诊断，展示各信号分数、初始排名、命中原因和分阶段耗时。
+- 已扩展 v0.6.0 评测 profile 与报告，可对比检索和 Reranker 配置。
 
 ## v0.8.0 - 代码库批量入库
 

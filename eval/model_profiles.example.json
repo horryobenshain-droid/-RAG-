@@ -1,31 +1,37 @@
 {
   "profiles": [
     {
-      "name": "ollama-qwen2.5-3b",
+      "name": "qwen-similarity",
       "overrides": {
         "llm_provider": "ollama",
-        "ollama_chat_model": "qwen2.5:3b"
+        "ollama_chat_model": "qwen2.5:7b",
+        "retrieval_strategy": "similarity",
+        "retrieval_fetch_k": 40,
+        "reranker_provider": "none"
       }
     },
     {
-      "name": "ollama-qwen2.5-7b",
+      "name": "qwen-mmr",
       "overrides": {
         "llm_provider": "ollama",
-        "ollama_chat_model": "qwen2.5:7b"
+        "ollama_chat_model": "qwen2.5:7b",
+        "retrieval_strategy": "mmr",
+        "retrieval_fetch_k": 40,
+        "mmr_lambda_mult": 0.5,
+        "reranker_provider": "none"
       }
     },
     {
-      "name": "ollama-llama3.1-8b",
+      "name": "qwen-mmr-reranker",
       "overrides": {
         "llm_provider": "ollama",
-        "ollama_chat_model": "llama3.1:8b"
-      }
-    },
-    {
-      "name": "openai",
-      "overrides": {
-        "llm_provider": "openai",
-        "openai_chat_model": "gpt-5.5"
+        "ollama_chat_model": "qwen2.5:7b",
+        "retrieval_strategy": "mmr",
+        "retrieval_fetch_k": 40,
+        "mmr_lambda_mult": 0.5,
+        "reranker_provider": "cross_encoder",
+        "reranker_model": "BAAI/bge-reranker-base",
+        "reranker_candidate_k": 12
       }
     }
   ]

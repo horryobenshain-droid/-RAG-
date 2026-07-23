@@ -57,9 +57,7 @@ def test_evaluator_computes_metrics_and_writes_reports(
                 {
                     "id": "qpow",
                     "question": "qpow complexity?",
-                    "expected_sources": [
-                        {"file_name": "quick_power.cpp", "symbol_name": "qpow"}
-                    ],
+                    "expected_sources": [{"file_name": "quick_power.cpp", "symbol_name": "qpow"}],
                     "expected_answer_keywords": ["qpow", "O(log"],
                     "forbidden_answer_keywords": ["矩阵快速幂"],
                     "require_citation": True,
@@ -76,7 +74,7 @@ def test_evaluator_computes_metrics_and_writes_reports(
     run = evaluate_dataset(
         dataset=dataset,
         dataset_path="dataset.json",
-        profiles=[ModelProfile(name="demo")],
+        profiles=[ModelProfile(name="demo", overrides={"retrieval_strategy": "mmr"})],
         base_settings=settings,
     )
 
@@ -90,6 +88,7 @@ def test_evaluator_computes_metrics_and_writes_reports(
     assert summary.recall_at_k == 1.0
     assert summary.citation_hit_rate == 1.0
     assert summary.average_latency_ms == 25.0
+    assert run.profiles[0].retrieval_strategy == "mmr"
 
     markdown_path = tmp_path / "report.md"
     json_path = tmp_path / "report.json"

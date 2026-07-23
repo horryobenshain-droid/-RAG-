@@ -57,7 +57,13 @@ def chat(
 ) -> ChatResponse:
     top_k = request.top_k or settings.default_top_k
     try:
-        result = answer_question(request.question, top_k, settings, request.answer_mode)
+        result = answer_question(
+            request.question,
+            top_k,
+            settings,
+            request.answer_mode,
+            request.retrieval_strategy,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -73,7 +79,12 @@ def chat(
             score=source.score,
             vector_score=source.hybrid_score.vector_score,
             keyword_score=source.hybrid_score.keyword_score,
+            filename_score=source.hybrid_score.filename_score,
+            symbol_score=source.hybrid_score.symbol_score,
+            reranker_score=source.hybrid_score.reranker_score,
+            retrieval_rank=source.hybrid_score.retrieval_rank,
             matched_keywords=source.hybrid_score.matched_keywords,
+            reasons=source.hybrid_score.reasons,
             language=_optional_str(source.document.metadata.get("language")),
             symbol_name=_optional_str(source.document.metadata.get("symbol_name")),
             start_line=_optional_int(source.document.metadata.get("start_line")),
@@ -93,6 +104,13 @@ def chat(
         embedding_model=result.embedding_model,
         answer_mode=result.answer_mode,
         answer_basis=result.answer_basis,
+        retrieval_strategy=result.retrieval_strategy,
+        candidate_count=result.candidate_count,
+        retrieval_ms=round(result.retrieval_ms, 2),
+        reranking_ms=round(result.reranking_ms, 2),
+        generation_ms=round(result.generation_ms, 2),
+        reranker_provider=result.reranker_provider,
+        reranker_model=result.reranker_model,
     )
 
 

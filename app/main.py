@@ -25,7 +25,7 @@ app.include_router(router)
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
+def health() -> dict[str, str | int]:
     return {
         "status": "ok",
         "version": __version__,
@@ -34,6 +34,11 @@ def health() -> dict[str, str]:
         "llm_model": _llm_model_name(),
         "embedding_provider": settings.embedding_provider,
         "embedding_model": _embedding_model_name(),
+        "retrieval_strategy": settings.retrieval_strategy,
+        "default_top_k": settings.default_top_k,
+        "retrieval_fetch_k": settings.retrieval_fetch_k,
+        "reranker_provider": settings.reranker_provider,
+        "reranker_model": settings.reranker_model,
     }
 
 

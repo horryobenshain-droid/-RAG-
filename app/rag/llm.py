@@ -17,6 +17,7 @@ RESPONSE_STYLE_RULES = """输出要求：
 - 代码必须放在带语言标识的 Markdown 代码块中，例如 ```cpp。
   不要在正文中裸写 C++ 泛型、比较表达式或残缺代码。
 - 用户要求代码时，只给与问题直接相关且结构完整的模板，并说明复杂度和关键边界条件。
+- 每个事实结论都应由对应片段支持；引用只能使用上下文中实际存在的 source 编号。
 - 不确定的信息要明确说明，不要用残缺伪代码填充答案。"""
 
 STRICT_SYSTEM_PROMPT = f"""你是一个严谨的本地知识库问答助手。
@@ -57,6 +58,7 @@ AUGMENTED_USER_GUIDE = """当前回答模式：知识库增强。
 _AUGMENTED_NOTICE_PATTERN = re.compile(
     r"(?m)^[ \t]*[\[【]?\s*知识库资料不足[，,]\s*以下为模型通用知识补充\s*[\]】]?[。.]?[ \t]*$"
 )
+
 
 def build_context(documents: list[Document]) -> str:
     blocks = []

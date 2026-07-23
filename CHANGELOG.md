@@ -4,6 +4,15 @@
 
 - No unreleased changes yet.
 
+## 0.7.0 - 2026-07-23
+
+- Add similarity and MMR retrieval strategies with request-level switching.
+- Make candidate counts, MMR diversity, chunking and hybrid ranking weights configurable.
+- Add an optional lazy-loaded CrossEncoder reranker with bounded candidate scoring.
+- Return per-source score breakdowns, retrieval ranks and human-readable hit reasons.
+- Report retrieval, reranking and generation latency separately in the API and UI.
+- Extend evaluation profiles and reports to compare retrieval and reranker configurations.
+
 ## 0.6.0 - 2026-07-23
 
 - Add validated JSON evaluation datasets and model comparison profiles.

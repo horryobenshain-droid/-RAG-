@@ -16,6 +16,20 @@ ALLOWED_PROFILE_OVERRIDES = {
     "ollama_top_p",
     "ollama_repeat_penalty",
     "ollama_timeout_seconds",
+    "default_top_k",
+    "retrieval_strategy",
+    "retrieval_fetch_k",
+    "mmr_lambda_mult",
+    "hybrid_vector_weight",
+    "hybrid_keyword_weight",
+    "hybrid_filename_weight",
+    "hybrid_symbol_weight",
+    "reranker_provider",
+    "reranker_model",
+    "reranker_device",
+    "reranker_candidate_k",
+    "reranker_batch_size",
+    "reranker_weight",
 }
 
 
@@ -96,7 +110,12 @@ class EvaluatedSource(BaseModel):
     score: float | None = None
     vector_score: float | None = None
     keyword_score: float | None = None
+    filename_score: float | None = None
+    symbol_score: float | None = None
+    reranker_score: float | None = None
+    retrieval_rank: int | None = None
     matched_keywords: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
     preview: str
 
 
@@ -113,6 +132,11 @@ class EvaluationCaseResult(BaseModel):
     missing_answer_keywords: list[str] = Field(default_factory=list)
     matched_forbidden_keywords: list[str] = Field(default_factory=list)
     error: str | None = None
+    retrieval_strategy: str | None = None
+    candidate_count: int | None = None
+    retrieval_ms: float | None = None
+    reranking_ms: float | None = None
+    generation_ms: float | None = None
 
 
 class EvaluationSummary(BaseModel):
@@ -136,6 +160,10 @@ class ProfileEvaluationResult(BaseModel):
     duration_ms: float
     summary: EvaluationSummary
     cases: list[EvaluationCaseResult]
+    retrieval_strategy: str = "similarity"
+    retrieval_fetch_k: int = 40
+    reranker_provider: str = "none"
+    reranker_model: str | None = None
 
 
 class EvaluationRun(BaseModel):

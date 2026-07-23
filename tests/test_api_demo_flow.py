@@ -43,7 +43,11 @@ def test_upload_and_chat_demo_flow(tmp_path: Path) -> None:
 
         chat_response = client.post(
             "/api/chat",
-            json={"question": "What does RAG combine?", "top_k": 2},
+            json={
+                "question": "What does RAG combine?",
+                "top_k": 2,
+                "retrieval_strategy": "mmr",
+            },
         )
         assert chat_response.status_code == 200
         payload = chat_response.json()
@@ -55,7 +59,15 @@ def test_upload_and_chat_demo_flow(tmp_path: Path) -> None:
         assert payload["embedding_provider"] == "demo"
         assert payload["answer_mode"] == "strict"
         assert payload["answer_basis"] == "knowledge_base"
+        assert payload["retrieval_strategy"] == "mmr"
+        assert payload["candidate_count"] == 1
+        assert payload["retrieval_ms"] >= 0
+        assert payload["reranking_ms"] >= 0
+        assert payload["generation_ms"] >= 0
+        assert payload["reranker_provider"] == "none"
         assert payload["sources"][0]["score"] is not None
+        assert payload["sources"][0]["retrieval_rank"] == 1
+        assert payload["sources"][0]["reasons"]
         assert 0 <= payload["sources"][0]["score"] <= 1
 
         delete_response = client.delete(f"/api/documents/{document_id}")

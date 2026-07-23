@@ -10,13 +10,15 @@ from app.core.registry import DocumentRecord, DocumentRegistry, utc_now
 from app.loaders.local_loader import load_local_file
 from app.rag.hybrid_retriever import HybridScore, rerank_with_keywords
 from app.rag.llm import AnswerMode, generate_answer
+from app.rag.reranker import rerank_with_cross_encoder
 from app.rag.splitter import split_documents
 from app.rag.vectorstore import (
+    RetrievalStrategy,
     add_documents,
     count_vectors,
     delete_document_vectors,
     reset_vectorstore,
-    similarity_search_with_scores,
+    retrieve_with_scores,
 )
 
 
@@ -53,6 +55,13 @@ class AnswerResult:
         embedding_model: str,
         answer_mode: AnswerMode,
         answer_basis: str,
+        retrieval_strategy: RetrievalStrategy = "similarity",
+        candidate_count: int = 0,
+        retrieval_ms: float = 0.0,
+        reranking_ms: float = 0.0,
+        generation_ms: float = 0.0,
+        reranker_provider: str = "none",
+        reranker_model: str | None = None,
     ) -> None:
         self.answer = answer
         self.sources = sources
@@ -63,6 +72,13 @@ class AnswerResult:
         self.embedding_model = embedding_model
         self.answer_mode = answer_mode
         self.answer_basis = answer_basis
+        self.retrieval_strategy = retrieval_strategy
+        self.candidate_count = candidate_count
+        self.retrieval_ms = retrieval_ms
+        self.reranking_ms = reranking_ms
+        self.generation_ms = generation_ms
+        self.reranker_provider = reranker_provider
+        self.reranker_model = reranker_model
 
 
 def ingest_file(
@@ -123,11 +139,44 @@ def answer_question(
     top_k: int,
     settings: Settings,
     answer_mode: AnswerMode = "strict",
+    retrieval_strategy: RetrievalStrategy | None = None,
 ) -> AnswerResult:
     started_at = perf_counter()
     _ensure_embedding_config_matches_active_documents(settings)
-    search_results = similarity_search_with_scores(question, top_k, settings)
-    reranked_results = rerank_with_keywords(question, search_results, top_k)
+    active_strategy = retrieval_strategy or settings.retrieval_strategy
+
+    retrieval_started = perf_counter()
+    search_results = retrieve_with_scores(
+        question,
+        top_k,
+        settings,
+        strategy=active_strategy,
+    )
+    retrieval_ms = (perf_counter() - retrieval_started) * 1000
+
+    reranking_started = perf_counter()
+    hybrid_limit = (
+        max(top_k, settings.reranker_candidate_k)
+        if settings.reranker_provider == "cross_encoder"
+        else top_k
+    )
+    hybrid_results = rerank_with_keywords(
+        question,
+        search_results,
+        hybrid_limit,
+        vector_weight=settings.hybrid_vector_weight,
+        keyword_weight=settings.hybrid_keyword_weight,
+        filename_weight=settings.hybrid_filename_weight,
+        symbol_weight=settings.hybrid_symbol_weight,
+        retrieval_strategy=active_strategy,
+    )
+    reranked_results = rerank_with_cross_encoder(
+        question,
+        hybrid_results,
+        top_k,
+        settings,
+    )
+    reranking_ms = (perf_counter() - reranking_started) * 1000
     sources = [
         RetrievedSource(
             document=document,
@@ -137,7 +186,10 @@ def answer_question(
         for document, hybrid_score in reranked_results
     ]
     documents = [source.document for source in sources]
+
+    generation_started = perf_counter()
     answer = generate_answer(question, documents, settings, answer_mode)
+    generation_ms = (perf_counter() - generation_started) * 1000
     elapsed_ms = (perf_counter() - started_at) * 1000
     return AnswerResult(
         answer=answer,
@@ -149,6 +201,15 @@ def answer_question(
         embedding_model=_embedding_model_name(settings),
         answer_mode=answer_mode,
         answer_basis=_answer_basis(answer_mode, sources),
+        retrieval_strategy=active_strategy,
+        candidate_count=len(search_results),
+        retrieval_ms=retrieval_ms,
+        reranking_ms=reranking_ms,
+        generation_ms=generation_ms,
+        reranker_provider=settings.reranker_provider,
+        reranker_model=(
+            settings.reranker_model if settings.reranker_provider == "cross_encoder" else None
+        ),
     )
 
 
@@ -206,8 +267,7 @@ def _ensure_embedding_config_matches_active_documents(settings: Settings) -> Non
         return
 
     examples = "、".join(
-        str(document.get("original_file_name", "未知文档"))
-        for document in mismatched_documents[:3]
+        str(document.get("original_file_name", "未知文档")) for document in mismatched_documents[:3]
     )
     if len(mismatched_documents) > 3:
         examples += f" 等 {len(mismatched_documents)} 个文档"

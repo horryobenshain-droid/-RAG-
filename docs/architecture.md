@@ -10,17 +10,18 @@
 6. Embedding Provider 将 chunk 转成向量。
 7. Chroma 将向量和元数据持久化到 `data/chroma/`。
 8. 文档注册表将文件级生命周期信息写入 `data/registry.json`。
-9. 用户提问时，Retriever 先扩大召回候选片段。
-10. Hybrid Reranker 根据向量分、关键词命中、文件名和函数名命中重排。
-11. Answer Policy 根据回答模式选择严格知识库 Prompt 或增强 Prompt。
-12. LLM 根据检索片段、Prompt 和回答模式生成回答。
-13. API 返回回答、来源、相关度、命中词、代码行号、耗时、模型配置和答案依据。
+9. 用户提问时，Retriever 复用一次查询向量，以 similarity 或 MMR 从 `fetch_k` 候选中召回。
+10. Hybrid Reranker 根据可配置的向量分、关键词、文件名和函数名权重进行初次重排。
+11. 启用 CrossEncoder 时，对限定数量的候选执行语义二次重排；默认关闭并按需懒加载。
+12. Answer Policy 根据回答模式选择严格知识库 Prompt 或增强 Prompt。
+13. LLM 根据检索片段、Prompt 和回答模式生成回答。
+14. API 返回回答、来源评分、命中原因、初始排名、分阶段耗时、模型配置和答案依据。
 
 ## 评估流程
 
 1. `eval/eval_cases.json` 定义问题、期望来源、答案关键词、禁用词和引用要求。
 2. 评估 CLI 可选将固定语料入库，并使用 SHA256 跳过已经存在的文件。
-3. 每个模型 profile 仅覆盖 LLM Provider 与生成参数，复用同一套知识库和 Embedding。
+3. 每个 profile 可覆盖 LLM、检索策略、重排权重和 Reranker 参数，复用同一套知识库和 Embedding。
 4. Runner 调用业务层 `answer_question`，记录答案、来源、分数、耗时和单题错误。
 5. Metrics 计算宏平均 Recall@K、引用命中率、答案关键词召回率、通过率和延迟。
 6. Reporter 输出便于审阅的 Markdown 和便于后续分析的 JSON 文件。
@@ -35,6 +36,7 @@
 - `app/rag/embeddings.py`：demo 哈希向量、OpenAI Embeddings、本地 HuggingFace Embeddings。
 - `app/rag/code_splitter.py`：代码函数/类/行号切分。
 - `app/rag/hybrid_retriever.py`：向量与关键词混合重排。
+- `app/rag/reranker.py`：可选 CrossEncoder 二次重排与模型缓存。
 - `app/rag/vectorstore.py`：Chroma 初始化、检索、删除和重置。
 - `app/rag/llm.py`：Prompt 构造和 OpenAI Responses API 调用。
 - `app/rag/service.py`：入库、问答和知识库管理业务逻辑。
@@ -44,8 +46,16 @@
 - `app/evaluation/cli.py`：评估命令行入口与可选语料入库。
 - `ui/streamlit_app.py`：简体中文前端界面。
 
-模型 profile 不允许包含 `OPENAI_API_KEY` 或修改 Embedding 配置。密钥仍由 `.env` 提供；
-所有对比模型必须复用当前知识库的 Embedding 配置，保证召回结果可比。
+Profile 不允许包含 `OPENAI_API_KEY` 或修改 Embedding 配置。密钥仍由 `.env` 提供；
+所有对比配置必须复用当前知识库的 Embedding 配置，保证召回结果可比。
+
+## 检索与重排
+
+- `similarity`：按向量相关度取得 `fetch_k` 候选，再执行混合重排。
+- `mmr`：从 `fetch_k` 向量候选中选择兼顾相关性与多样性的片段，再执行混合重排。
+- `RERANKER_PROVIDER=none`：仅使用混合分，默认设置不会下载额外模型。
+- `RERANKER_PROVIDER=cross_encoder`：对混合重排前列候选运行 CrossEncoder，并融合两个分数。
+- `chunk_size` 或 `chunk_overlap` 变化后需要重新入库，已有向量不会自动重新切分。
 
 ## Provider 模式
 

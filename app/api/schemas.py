@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -13,8 +15,9 @@ class UploadResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
-    top_k: int | None = Field(default=None, ge=1, le=10)
+    top_k: int | None = Field(default=None, ge=1, le=50)
     answer_mode: str = Field(default="strict", pattern="^(strict|augmented)$")
+    retrieval_strategy: Literal["similarity", "mmr"] | None = None
 
 
 class Source(BaseModel):
@@ -26,7 +29,12 @@ class Source(BaseModel):
     score: float | None = None
     vector_score: float | None = None
     keyword_score: float | None = None
-    matched_keywords: list[str] = []
+    filename_score: float | None = None
+    symbol_score: float | None = None
+    reranker_score: float | None = None
+    retrieval_rank: int | None = None
+    matched_keywords: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
     language: str | None = None
     symbol_name: str | None = None
     start_line: int | None = None
@@ -45,6 +53,13 @@ class ChatResponse(BaseModel):
     embedding_model: str
     answer_mode: str
     answer_basis: str
+    retrieval_strategy: str
+    candidate_count: int
+    retrieval_ms: float
+    reranking_ms: float
+    generation_ms: float
+    reranker_provider: str
+    reranker_model: str | None = None
 
 
 class DocumentRecordResponse(BaseModel):

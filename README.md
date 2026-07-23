@@ -4,7 +4,7 @@
 
 ## 当前版本
 
-`v0.6.0` 已加入可重复运行的 RAG 评估与模型对比能力：
+`v0.7.0` 已加入可配置的多阶段检索、重排与质量诊断能力：
 
 - 文档上传、解析、切分与 Chroma 向量入库。
 - 文档注册表：记录 `document_id`、文件哈希、入库时间、chunk 数、模型配置。
@@ -15,7 +15,10 @@
 - 本地 Embedding：支持 `BAAI/bge-small-zh-v1.5`，适合中文语义检索。
 - 代码感知切分：对代码文件记录语言、函数名、起止行号。
 - 混合检索：结合向量分、关键词命中、文件名和函数名命中重排结果。
-- 检索诊断：来源片段展示综合分、向量分、关键词分和命中词。
+- 检索策略：支持 similarity 与 MMR，并可在每次问答时切换。
+- 可选 Reranker：通过 CrossEncoder 对初召回候选执行二次语义重排。
+- 检索诊断：展示完整分数组成、初始排名、命中原因、候选数和分阶段耗时。
+- 检索参数：`top_k`、`fetch_k`、chunk 参数、MMR 和混合权重均可配置。
 - 评估数据集：用 JSON 定义问题、期望来源、答案关键词、禁用词和引用要求。
 - 批量模型对比：在同一知识库上比较 OpenAI、Ollama Qwen 和 Ollama Llama。
 - 评估指标：输出 Recall@K、引用命中率、关键词召回率、通过率和延迟。
@@ -33,6 +36,7 @@
 - OpenAI Responses API / OpenAI Embeddings
 - Ollama 本地 Chat API
 - Sentence Transformers / HuggingFace Embeddings
+- Sentence Transformers CrossEncoder Reranker
 - PyPDF / docx2txt
 
 ## 快速开始
@@ -129,6 +133,35 @@ LOCAL_EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5
 
 切换 Embedding Provider 或 Embedding 模型后，建议在界面中清空知识库并重新入库，避免向量维度不一致。
 
+## 检索与 Reranker 配置
+
+默认使用 similarity 与混合重排，不会额外下载 Reranker 模型：
+
+```env
+RETRIEVAL_STRATEGY=similarity
+RETRIEVAL_FETCH_K=40
+MMR_LAMBDA_MULT=0.5
+
+HYBRID_VECTOR_WEIGHT=0.45
+HYBRID_KEYWORD_WEIGHT=0.40
+HYBRID_FILENAME_WEIGHT=0.10
+HYBRID_SYMBOL_WEIGHT=0.05
+
+RERANKER_PROVIDER=none
+RERANKER_MODEL=BAAI/bge-reranker-base
+RERANKER_DEVICE=cpu
+RERANKER_CANDIDATE_K=12
+RERANKER_BATCH_SIZE=16
+RERANKER_WEIGHT=0.60
+```
+
+启用二次重排时，将 `RERANKER_PROVIDER` 改为 `cross_encoder`。首次问答会下载
+`RERANKER_MODEL`，离线环境应提前准备模型缓存。MMR 的 `MMR_LAMBDA_MULT` 越接近 1
+越偏向相关性，越接近 0 越偏向结果多样性。
+
+`CHUNK_SIZE` 或 `CHUNK_OVERLAP` 修改后必须清空知识库并重新入库；四个
+`HYBRID_*_WEIGHT` 之和必须为 1。
+
 ## RAG 评估
 
 仓库提供一个可复现的小型评估集和三份示例语料。以下命令会先入库尚未存在的示例文件，
@@ -160,7 +193,7 @@ python -m app.evaluation.cli `
   --top-k 4
 ```
 
-Profile 只允许切换 LLM Provider、模型和生成参数，不能写 API Key 或修改 Embedding。
+Profile 允许切换 LLM、检索策略、混合权重和 Reranker 参数，不能写 API Key 或修改 Embedding。
 OpenAI Key 继续从 `.env` 读取；Ollama profile 对应的模型需要提前执行 `ollama pull`。
 某个模型不可用时，该模型的用例会记录为 `error`，其他模型仍会继续评估。
 
@@ -176,7 +209,7 @@ OpenAI Key 继续从 `.env` 读取；Ollama profile 对应的模型需要提前�
 
 ## API
 
-- `GET /health`：健康检查，包含当前应用版本和模型配置。
+- `GET /health`：健康检查，包含当前版本、模型与默认检索配置。
 - `POST /api/upload`：上传并入库文档。
 - `POST /api/chat`：基于知识库问答。
 - `GET /api/documents`：查看已入库文档。
@@ -197,11 +230,17 @@ curl -X POST http://127.0.0.1:8000/api/chat `
 - `sources`：来源文件、页码、chunk、相关度分数和片段预览。
 - `sources[].vector_score`：原始向量相关度。
 - `sources[].keyword_score`：关键词命中分。
+- `sources[].filename_score` / `sources[].symbol_score`：文件名和代码符号命中分。
+- `sources[].reranker_score`：启用 CrossEncoder 后的二次重排分。
+- `sources[].retrieval_rank` / `sources[].reasons`：初始排名和可读命中原因。
 - `sources[].matched_keywords`：命中的关键词。
 - `sources[].symbol_name` / `start_line` / `end_line`：代码片段定位信息。
 - `answer_mode`：回答模式，`strict` 或 `augmented`。
 - `answer_basis`：答案依据，`knowledge_base`、`model_prior` 或 `mixed`。
 - `elapsed_ms`：检索与生成耗时。
+- `retrieval_ms` / `reranking_ms` / `generation_ms`：各阶段耗时。
+- `retrieval_strategy` / `candidate_count`：本次检索策略和候选数量。
+- `reranker_provider` / `reranker_model`：本次二次重排配置。
 - `llm_provider` / `llm_model`：当前回答模型配置，支持 `demo`、`openai`、`ollama`。
 - `embedding_provider` / `embedding_model`：当前向量模型配置。
 
@@ -250,16 +289,16 @@ pytest -q
 - `v0.4.0`：代码感知切分、混合检索、来源诊断。
 - `v0.5.0`：接入 Ollama，支持 Qwen / Llama 本地模型。
 - `v0.6.0`：评估数据集、批量模型对比、质量指标和 Markdown/JSON 报告。
+- `v0.7.0`：MMR / similarity、CrossEncoder Reranker、参数化检索和来源诊断。
 
 后续目标是把项目从“可运行的 RAG demo”升级为“可评估、可部署、可配置、可信任的专业知识库应用”。
 
-### v0.7.0 - 检索质量优化
+### v0.7.0 - 检索质量优化（已完成）
 
-- 接入 reranker，对初召回结果进行二次重排。
-- 增加 MMR / similarity 检索策略切换。
-- 将 `top_k`、`fetch_k`、`chunk_size`、`chunk_overlap` 等参数配置化。
-- 增强检索诊断，展示每个来源被命中的原因。
-- 基于 v0.6.0 评估结果优化 chunk 策略、重排权重和 Prompt。
+- 已接入可选 CrossEncoder Reranker，对初召回结果进行二次重排。
+- 已增加 MMR / similarity 全局与单次问答策略切换。
+- 已配置化 `top_k`、`fetch_k`、chunk、MMR 和重排权重。
+- 已增强检索诊断与评测 profile，可直接比较不同检索组合。
 
 ### v0.8.0 - 代码库批量入库
 

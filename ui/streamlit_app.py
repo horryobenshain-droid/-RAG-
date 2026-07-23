@@ -44,6 +44,11 @@ ANSWER_BASIS_LABELS = {
     "model_prior": "模型通用知识",
     "mixed": "知识库 + 模型补充",
 }
+RETRIEVAL_STRATEGIES = {
+    "相似度": "similarity",
+    "MMR 多样性": "mmr",
+}
+RETRIEVAL_STRATEGY_LABELS = {value: key for key, value in RETRIEVAL_STRATEGIES.items()}
 
 
 def api_get(path: str) -> tuple[bool, dict[str, Any] | str]:
@@ -443,7 +448,8 @@ def render_header() -> None:
     col4.metric("模型组合", model_pair)
 
 
-def render_sidebar() -> tuple[int, str]:
+def render_sidebar() -> tuple[int, str, str]:
+    health = st.session_state.get("health") or {}
     with st.sidebar:
         st.subheader("文档入库")
         uploaded_file = st.file_uploader("选择文件", type=SUPPORTED_TYPES)
@@ -455,9 +461,7 @@ def render_sidebar() -> tuple[int, str]:
             disabled=uploaded_file is None,
         ):
             with st.spinner("正在解析、切分并写入向量库..."):
-                files = {
-                    "file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)
-                }
+                files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                 ok, payload = api_post("/api/upload", files=files)
             if ok and isinstance(payload, dict):
                 st.success(f"入库成功：{payload['chunks_indexed']} 个片段")
@@ -476,7 +480,23 @@ def render_sidebar() -> tuple[int, str]:
             horizontal=True,
         )
         answer_mode = ANSWER_MODES[answer_mode_label]
-        top_k = st.slider("召回片段数", min_value=1, max_value=10, value=4)
+        configured_top_k = int(health.get("default_top_k", 4))
+        top_k = st.slider(
+            "召回片段数",
+            min_value=1,
+            max_value=50,
+            value=max(1, min(configured_top_k, 50)),
+        )
+        strategy_options = list(RETRIEVAL_STRATEGIES.keys())
+        configured_strategy = str(health.get("retrieval_strategy", "similarity"))
+        configured_label = RETRIEVAL_STRATEGY_LABELS.get(configured_strategy, "相似度")
+        retrieval_strategy_label = st.radio(
+            "检索策略",
+            options=strategy_options,
+            index=strategy_options.index(configured_label),
+            horizontal=True,
+        )
+        retrieval_strategy = RETRIEVAL_STRATEGIES[retrieval_strategy_label]
 
         st.divider()
         st.subheader("知识库操作")
@@ -499,7 +519,7 @@ def render_sidebar() -> tuple[int, str]:
         if st.session_state.get("document_error"):
             st.error(st.session_state.document_error)
 
-    return top_k, answer_mode
+    return top_k, answer_mode, retrieval_strategy
 
 
 def _provider_model_label(provider: object, model: object) -> str:
@@ -529,8 +549,8 @@ def render_knowledge_base() -> None:
                     (
                         f'<div class="doc-title">{escape(file_name)}</div>'
                         f'<div class="doc-meta">{document["chunks_indexed"]} 片段 · '
-                        f'{escape(str(document["embedding_provider"]))} / '
-                        f'{escape(str(document["embedding_model"]))}</div>'
+                        f"{escape(str(document['embedding_provider']))} / "
+                        f"{escape(str(document['embedding_model']))}</div>"
                     ),
                     unsafe_allow_html=True,
                 )
@@ -557,7 +577,12 @@ def render_chat_history() -> None:
             render_sources(message.get("sources", []))
 
 
-def handle_question(question: str, top_k: int, answer_mode: str) -> None:
+def handle_question(
+    question: str,
+    top_k: int,
+    answer_mode: str,
+    retrieval_strategy: str,
+) -> None:
     st.session_state.messages.append({"role": "user", "content": question})
     with st.chat_message("user"):
         st.markdown(question)
@@ -570,6 +595,7 @@ def handle_question(question: str, top_k: int, answer_mode: str) -> None:
                     "question": question,
                     "top_k": top_k,
                     "answer_mode": answer_mode,
+                    "retrieval_strategy": retrieval_strategy,
                 },
             )
         if ok and isinstance(payload, dict):
@@ -603,6 +629,7 @@ def render_sources(sources: list[dict[str, Any]]) -> None:
                 source.get("score"),
                 source.get("vector_score"),
                 source.get("keyword_score"),
+                source.get("reranker_score"),
             )
             title_parts = [file_name, symbol, page_or_line, score_text]
             st.markdown(f"**[{source_id}] {' · '.join(part for part in title_parts if part)}**")
@@ -610,6 +637,14 @@ def render_sources(sources: list[dict[str, Any]]) -> None:
             matched_keywords = source.get("matched_keywords", [])
             if matched_keywords:
                 st.caption(f"命中词：{', '.join(matched_keywords)}")
+            reasons = source.get("reasons", [])
+            retrieval_rank = source.get("retrieval_rank")
+            diagnostics = []
+            if retrieval_rank:
+                diagnostics.append(f"初始召回第 {retrieval_rank} 位")
+            diagnostics.extend(str(reason) for reason in reasons)
+            if diagnostics:
+                st.caption(" · ".join(diagnostics))
             st.code(source.get("preview", ""), language=source.get("language") or None)
 
 
@@ -621,7 +656,24 @@ def render_answer_metadata(payload: dict[str, Any]) -> None:
     if payload.get("elapsed_ms") is not None:
         metadata.append(f"耗时 {payload['elapsed_ms']} ms")
     if payload.get("retrieved_chunks") is not None:
-        metadata.append(f"召回 {payload['retrieved_chunks']} 个片段")
+        candidate_count = payload.get("candidate_count", payload["retrieved_chunks"])
+        metadata.append(f"候选 {candidate_count} / 返回 {payload['retrieved_chunks']} 个片段")
+
+    strategy = payload.get("retrieval_strategy")
+    if strategy:
+        metadata.append(f"策略 {RETRIEVAL_STRATEGY_LABELS.get(strategy, strategy)}")
+
+    timing_parts = [
+        f"检索 {payload['retrieval_ms']} ms" if payload.get("retrieval_ms") is not None else None,
+        f"重排 {payload['reranking_ms']} ms" if payload.get("reranking_ms") is not None else None,
+        f"生成 {payload['generation_ms']} ms" if payload.get("generation_ms") is not None else None,
+    ]
+    timing_text = " / ".join(part for part in timing_parts if part)
+    if timing_text:
+        metadata.append(timing_text)
+
+    if payload.get("reranker_provider") == "cross_encoder":
+        metadata.append(f"Reranker {payload.get('reranker_model', 'CrossEncoder')}")
 
     llm_provider = payload.get("llm_provider")
     llm_model = payload.get("llm_model")
@@ -643,7 +695,12 @@ def _location_text(source: dict[str, Any]) -> str | None:
     return None
 
 
-def _score_text(score: object, vector_score: object, keyword_score: object) -> str:
+def _score_text(
+    score: object,
+    vector_score: object,
+    keyword_score: object,
+    reranker_score: object,
+) -> str:
     parts = []
     if isinstance(score, int | float):
         parts.append(f"综合 {score:.2f}")
@@ -651,6 +708,8 @@ def _score_text(score: object, vector_score: object, keyword_score: object) -> s
         parts.append(f"向量 {vector_score:.2f}")
     if isinstance(keyword_score, int | float):
         parts.append(f"关键词 {keyword_score:.2f}")
+    if isinstance(reranker_score, int | float):
+        parts.append(f"重排 {reranker_score:.2f}")
     return " / ".join(parts) if parts else "相关度未知"
 
 
@@ -661,11 +720,16 @@ st.set_page_config(
 )
 inject_styles()
 init_state()
-top_k_value, answer_mode_value = render_sidebar()
+top_k_value, answer_mode_value, retrieval_strategy_value = render_sidebar()
 render_header()
 render_knowledge_base()
 render_chat_history()
 
 question_text = st.chat_input("例如：请总结这篇论文的核心方法，或解释代码库中的检索流程")
 if question_text:
-    handle_question(question_text, top_k_value, answer_mode_value)
+    handle_question(
+        question_text,
+        top_k_value,
+        answer_mode_value,
+        retrieval_strategy_value,
+    )
