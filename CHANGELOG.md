@@ -4,6 +4,17 @@
 
 - No unreleased changes yet.
 
+## 0.6.0 - 2026-07-23
+
+- Add validated JSON evaluation datasets and model comparison profiles.
+- Add batch evaluation for retrieval, citations, answer keywords and latency.
+- Report macro Recall@K, citation hit rate, answer keyword recall, pass rate and P95 latency.
+- Generate detailed Markdown and machine-readable JSON evaluation reports.
+- Add reproducible evaluation corpus fixtures and a CLI with optional corpus ingestion.
+- Isolate per-case model failures so unavailable providers do not abort a comparison run.
+- Improve Chinese hybrid retrieval and structured code-answer prompting.
+- Add configurable Ollama output length, top-p and repetition penalty settings.
+
 ## 0.5.0 - 2026-06-13
 
 - Add Ollama LLM provider using the local `/api/chat` endpoint.

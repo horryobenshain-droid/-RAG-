@@ -4,7 +4,7 @@
 
 ## 当前版本
 
-`v0.5.0` 已接入 Ollama，可使用 Qwen / Llama 本地模型完成知识库问答：
+`v0.6.0` 已加入可重复运行的 RAG 评估与模型对比能力：
 
 - 文档上传、解析、切分与 Chroma 向量入库。
 - 文档注册表：记录 `document_id`、文件哈希、入库时间、chunk 数、模型配置。
@@ -16,6 +16,10 @@
 - 代码感知切分：对代码文件记录语言、函数名、起止行号。
 - 混合检索：结合向量分、关键词命中、文件名和函数名命中重排结果。
 - 检索诊断：来源片段展示综合分、向量分、关键词分和命中词。
+- 评估数据集：用 JSON 定义问题、期望来源、答案关键词、禁用词和引用要求。
+- 批量模型对比：在同一知识库上比较 OpenAI、Ollama Qwen 和 Ollama Llama。
+- 评估指标：输出 Recall@K、引用命中率、关键词召回率、通过率和延迟。
+- 评估报告：同时生成 Markdown 审阅报告和 JSON 结构化结果。
 - 简体中文 Streamlit 界面。
 - demo / OpenAI / Ollama 三种 LLM provider 模式。
 
@@ -114,6 +118,9 @@ OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_CHAT_MODEL=qwen2.5:7b
 OLLAMA_TEMPERATURE=0.2
 OLLAMA_NUM_CTX=8192
+OLLAMA_NUM_PREDICT=1024
+OLLAMA_TOP_P=0.9
+OLLAMA_REPEAT_PENALTY=1.1
 OLLAMA_TIMEOUT_SECONDS=120
 LOCAL_EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5
 ```
@@ -122,9 +129,54 @@ LOCAL_EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5
 
 切换 Embedding Provider 或 Embedding 模型后，建议在界面中清空知识库并重新入库，避免向量维度不一致。
 
+## RAG 评估
+
+仓库提供一个可复现的小型评估集和三份示例语料。以下命令会先入库尚未存在的示例文件，
+再使用当前 `.env` 中的模型运行评估：
+
+```powershell
+python -m app.evaluation.cli `
+  --dataset eval/eval_cases.json `
+  --ingest eval/corpus
+```
+
+默认生成：
+
+- `eval/eval_report.md`：模型对比、逐题指标、来源和完整答案。
+- `eval/eval_results.json`：适合脚本分析或持续集成的结构化结果。
+
+重复执行 `--ingest` 时会根据文件 SHA256 跳过已入库语料。评估现有知识库时可以省略
+`--ingest`，并把 `eval/eval_cases.json` 中的期望来源改成自己的文件名、chunk、文档 ID
+或代码符号。
+
+多模型对比使用 profile 文件。先复制示例并只保留本机可用的模型：
+
+```powershell
+Copy-Item eval/model_profiles.example.json eval/model_profiles.json
+
+python -m app.evaluation.cli `
+  --dataset eval/eval_cases.json `
+  --profiles eval/model_profiles.json `
+  --top-k 4
+```
+
+Profile 只允许切换 LLM Provider、模型和生成参数，不能写 API Key 或修改 Embedding。
+OpenAI Key 继续从 `.env` 读取；Ollama profile 对应的模型需要提前执行 `ollama pull`。
+某个模型不可用时，该模型的用例会记录为 `error`，其他模型仍会继续评估。
+
+评估指标定义：
+
+- `Recall@K`：期望来源中出现在前 K 个检索结果里的比例，再对用例取宏平均。
+- `引用命中率`：要求引用的用例中，答案是否引用了命中的期望来源。
+- `答案关键词召回率`：期望关键词中实际出现在答案里的比例。
+- `通过率`：来源、引用、关键词和禁用词检查全部满足的用例比例。
+- `平均延迟 / P95 延迟`：成功执行问答用例的端到端耗时。
+
+需要让评估失败反映到命令退出码时，增加 `--fail-on-failure`。
+
 ## API
 
-- `GET /health`：健康检查。
+- `GET /health`：健康检查，包含当前应用版本和模型配置。
 - `POST /api/upload`：上传并入库文档。
 - `POST /api/chat`：基于知识库问答。
 - `GET /api/documents`：查看已入库文档。
@@ -162,6 +214,7 @@ curl -X POST http://127.0.0.1:8000/api/chat `
 │  ├─ core/             # 配置、文件工具、文档注册表
 │  ├─ loaders/          # PDF、Word、文本、代码文件加载
 │  ├─ rag/              # Embedding、切分、向量库、Prompt、问答服务
+│  ├─ evaluation/       # 评估模型、运行器、报告和 CLI
 │  └─ main.py           # FastAPI 应用入口
 ├─ data/
 │  ├─ uploads/          # 用户上传文件，默认不提交
@@ -170,6 +223,10 @@ curl -X POST http://127.0.0.1:8000/api/chat `
 ├─ docs/
 │  ├─ architecture.md
 │  └─ roadmap.md
+├─ eval/
+│  ├─ corpus/           # 可复现的示例评估语料
+│  ├─ eval_cases.json
+│  └─ model_profiles.example.json
 ├─ tests/
 ├─ ui/
 │  └─ streamlit_app.py
@@ -192,16 +249,9 @@ pytest -q
 - `v0.3.0`：回答模式、本地中文 Embedding、答案依据标记。
 - `v0.4.0`：代码感知切分、混合检索、来源诊断。
 - `v0.5.0`：接入 Ollama，支持 Qwen / Llama 本地模型。
+- `v0.6.0`：评估数据集、批量模型对比、质量指标和 Markdown/JSON 报告。
 
 后续目标是把项目从“可运行的 RAG demo”升级为“可评估、可部署、可配置、可信任的专业知识库应用”。
-
-### v0.6.0 - RAG 评估与模型对比
-
-- 新增评估数据集，例如 `eval_cases.json`。
-- 支持批量提问评估，记录每个问题的命中来源、回答内容和耗时。
-- 输出 `Recall@K`、平均延迟、引用命中情况等指标。
-- 对比 `OpenAI`、`Ollama Qwen`、`Ollama Llama` 在同一知识库上的效果。
-- 生成 `eval_report.md`，用于沉淀评估结果和调参结论。
 
 ### v0.7.0 - 检索质量优化
 

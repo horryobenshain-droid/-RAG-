@@ -1,0 +1,32 @@
+{
+  "profiles": [
+    {
+      "name": "ollama-qwen2.5-3b",
+      "overrides": {
+        "llm_provider": "ollama",
+        "ollama_chat_model": "qwen2.5:3b"
+      }
+    },
+    {
+      "name": "ollama-qwen2.5-7b",
+      "overrides": {
+        "llm_provider": "ollama",
+        "ollama_chat_model": "qwen2.5:7b"
+      }
+    },
+    {
+      "name": "ollama-llama3.1-8b",
+      "overrides": {
+        "llm_provider": "ollama",
+        "ollama_chat_model": "llama3.1:8b"
+      }
+    },
+    {
+      "name": "openai",
+      "overrides": {
+        "llm_provider": "openai",
+        "openai_chat_model": "gpt-5.5"
+      }
+    }
+  ]
+}

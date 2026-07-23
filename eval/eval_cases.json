@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "name": "v0.6.0 sample knowledge base",
+  "description": "A small reproducible dataset for validating retrieval, citations and answers.",
+  "cases": [
+    {
+      "id": "rag-pipeline",
+      "question": "RAG 问答流程包含哪三个核心阶段？",
+      "answer_mode": "strict",
+      "top_k": 3,
+      "expected_sources": [
+        {
+          "file_name": "rag_pipeline.md"
+        }
+      ],
+      "expected_answer_keywords": [
+        "检索",
+        "上下文",
+        "生成"
+      ],
+      "require_citation": true
+    },
+    {
+      "id": "quick-power",
+      "question": "qpow 如何计算模意义快速幂，它的时间复杂度是什么？",
+      "answer_mode": "strict",
+      "top_k": 3,
+      "expected_sources": [
+        {
+          "file_name": "quick_power.cpp",
+          "symbol_name": "qpow"
+        }
+      ],
+      "expected_answer_keywords": [
+        "qpow",
+        "O(log"
+      ],
+      "forbidden_answer_keywords": [
+        "矩阵快速幂"
+      ],
+      "require_citation": true
+    },
+    {
+      "id": "answer-modes",
+      "question": "严格知识库模式和知识库增强模式有什么区别？",
+      "answer_mode": "strict",
+      "top_k": 3,
+      "expected_sources": [
+        {
+          "file_name": "answer_modes.md"
+        }
+      ],
+      "expected_answer_keywords": [
+        "拒答",
+        "通用知识"
+      ],
+      "require_citation": true
+    }
+  ]
+}

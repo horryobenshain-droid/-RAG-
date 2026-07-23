@@ -16,6 +16,15 @@
 12. LLM 根据检索片段、Prompt 和回答模式生成回答。
 13. API 返回回答、来源、相关度、命中词、代码行号、耗时、模型配置和答案依据。
 
+## 评估流程
+
+1. `eval/eval_cases.json` 定义问题、期望来源、答案关键词、禁用词和引用要求。
+2. 评估 CLI 可选将固定语料入库，并使用 SHA256 跳过已经存在的文件。
+3. 每个模型 profile 仅覆盖 LLM Provider 与生成参数，复用同一套知识库和 Embedding。
+4. Runner 调用业务层 `answer_question`，记录答案、来源、分数、耗时和单题错误。
+5. Metrics 计算宏平均 Recall@K、引用命中率、答案关键词召回率、通过率和延迟。
+6. Reporter 输出便于审阅的 Markdown 和便于后续分析的 JSON 文件。
+
 ## 模块
 
 - `app/api`：HTTP 路由和请求/响应模型。
@@ -29,7 +38,14 @@
 - `app/rag/vectorstore.py`：Chroma 初始化、检索、删除和重置。
 - `app/rag/llm.py`：Prompt 构造和 OpenAI Responses API 调用。
 - `app/rag/service.py`：入库、问答和知识库管理业务逻辑。
+- `app/evaluation/models.py`：评估集、模型 profile、单题结果与汇总指标模型。
+- `app/evaluation/runner.py`：批量问答、指标计算和错误隔离。
+- `app/evaluation/report.py`：Markdown 与 JSON 报告生成。
+- `app/evaluation/cli.py`：评估命令行入口与可选语料入库。
 - `ui/streamlit_app.py`：简体中文前端界面。
+
+模型 profile 不允许包含 `OPENAI_API_KEY` 或修改 Embedding 配置。密钥仍由 `.env` 提供；
+所有对比模型必须复用当前知识库的 Embedding 配置，保证召回结果可比。
 
 ## Provider 模式
 
@@ -84,3 +100,6 @@
 - `data/chroma/`
 - `data/registry.json`
 - `.env`
+- `eval/eval_report.md`
+- `eval/eval_results.json`
+- `eval/model_profiles.json`

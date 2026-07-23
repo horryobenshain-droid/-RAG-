@@ -41,13 +41,13 @@
 - Ollama base URL、模型名、temperature、context length、timeout 可配置。
 - 支持“本地 LLM + 本地 Embedding”的离线知识库问答组合。
 
-## v0.6.0 - RAG 评估与模型对比
+## v0.6.0 - RAG 评估与模型对比（已完成）
 
-- 新增评估数据集，例如 `eval_cases.json`。
-- 支持批量提问评估，记录每个问题的命中来源、回答内容和耗时。
-- 输出 `Recall@K`、平均延迟、引用命中情况等指标。
-- 对比 `OpenAI`、`Ollama Qwen`、`Ollama Llama` 在同一知识库上的效果。
-- 生成 `eval_report.md`，用于沉淀评估结果和调参结论。
+- 已新增带 schema 校验的 `eval/eval_cases.json`。
+- 已支持批量提问，记录答案、命中来源、评分、耗时与单题错误。
+- 已输出 `Recall@K`、引用命中率、关键词召回率、通过率、平均与 P95 延迟。
+- 已支持通过 profile 对比 OpenAI、Ollama Qwen 和 Ollama Llama。
+- 已生成 Markdown 与 JSON 双格式报告，并提供可复现的示例语料。
 
 ## v0.7.0 - RAG 质量优化
 

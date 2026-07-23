@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import __version__
 from app.api.routes import router
 from app.core.config import get_settings
 
@@ -9,7 +10,7 @@ settings = get_settings()
 app = FastAPI(
     title="Local RAG Knowledge Base",
     description="A local RAG knowledge base system built with FastAPI, LangChain and Chroma.",
-    version="0.5.0",
+    version=__version__,
 )
 
 app.add_middleware(
@@ -27,6 +28,7 @@ app.include_router(router)
 def health() -> dict[str, str]:
     return {
         "status": "ok",
+        "version": __version__,
         "environment": settings.app_env,
         "llm_provider": settings.llm_provider,
         "llm_model": _llm_model_name(),
