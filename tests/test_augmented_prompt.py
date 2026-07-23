@@ -15,7 +15,9 @@ def test_augmented_openai_input_adds_mode_specific_guidance() -> None:
     )
 
     assert "当前回答模式：知识库增强" in prompt_input
-    assert "不要把“知识库资料不足”作为最终答案" in prompt_input
+    assert "来源声明最多出现一次" in prompt_input
+    assert "禁止改变问题主题" in prompt_input
+    assert "Markdown 代码块" in prompt_input
     assert "解释一下最短路径算法" in prompt_input
 
 

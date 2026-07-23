@@ -2,7 +2,6 @@ $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PythonPath = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
-$StreamlitPath = Join-Path $ProjectRoot ".venv\Scripts\streamlit.exe"
 $BackendUrl = "http://127.0.0.1:8000/health"
 $FrontendUrl = "http://127.0.0.1:8501"
 
@@ -65,13 +64,13 @@ if (Test-HttpOk $FrontendUrl) {
 else {
     Write-Host "Starting frontend..." -ForegroundColor Cyan
     Start-Process `
-        -FilePath $StreamlitPath `
-        -ArgumentList "run", "ui/streamlit_app.py", "--server.address=127.0.0.1", "--server.port=8501", "--server.headless=true", "--browser.gatherUsageStats=false" `
+        -FilePath $PythonPath `
+        -ArgumentList "-m", "streamlit", "run", "ui/streamlit_app.py", "--server.address=127.0.0.1", "--server.port=8501", "--server.headless=true", "--browser.gatherUsageStats=false" `
         -WorkingDirectory $ProjectRoot `
         -WindowStyle Hidden | Out-Null
 
     if (-not (Wait-HttpOk $FrontendUrl 45)) {
-        Write-Error "Frontend startup timed out. Try manually: streamlit run ui/streamlit_app.py"
+        Write-Error "Frontend startup timed out. Try manually: .\.venv\Scripts\python.exe -m streamlit run ui/streamlit_app.py"
     }
 }
 

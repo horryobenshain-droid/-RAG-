@@ -41,23 +41,43 @@
 - Ollama base URL、模型名、temperature、context length、timeout 可配置。
 - 支持“本地 LLM + 本地 Embedding”的离线知识库问答组合。
 
-## v0.6.0 - 代码库批量上传
+## v0.6.0 - RAG 评估与模型对比
 
-- 支持 zip 上传和批量文件解析。
-- 忽略二进制、依赖目录和构建产物。
-- 保留目录路径作为来源信息。
-- 增加代码问答测试集。
+- 新增评估数据集，例如 `eval_cases.json`。
+- 支持批量提问评估，记录每个问题的命中来源、回答内容和耗时。
+- 输出 `Recall@K`、平均延迟、引用命中情况等指标。
+- 对比 `OpenAI`、`Ollama Qwen`、`Ollama Llama` 在同一知识库上的效果。
+- 生成 `eval_report.md`，用于沉淀评估结果和调参结论。
 
 ## v0.7.0 - RAG 质量优化
 
 - Reranker 接入。
 - MMR / similarity 检索策略切换。
-- Chunk size、overlap、top-k 可配置。
-- Prompt 模板版本管理。
+- `top_k`、`fetch_k`、`chunk_size`、`chunk_overlap` 等参数配置化。
+- 增强检索诊断，展示每个来源被命中的原因。
+- 基于 v0.6.0 评估结果优化 chunk 策略、重排权重和 Prompt。
 
-## v1.0.0 - 简历展示版
+## v0.8.0 - 代码库批量入库
 
-- 评估数据集。
-- 召回率、回答准确率、耗时统计。
+- 支持 zip 上传和批量文件解析。
+- 自动忽略 `.git`、`node_modules`、`.venv`、`dist`、二进制文件和构建产物。
+- 保留目录路径、模块路径和代码符号信息作为来源元数据。
+- 支持按代码库删除、重建索引。
+- 增加代码库问答评测样例。
+
+## v0.9.0 - 产品化 UI 与配置中心
+
+- 在 Streamlit 中选择 LLM Provider 和模型，例如 OpenAI、Qwen、Llama。
+- 展示当前模型状态、Ollama 连通性、Embedding 配置和知识库统计。
+- 增加模型参数、检索参数和回答模式的可视化配置。
+- 支持聊天历史导出、来源复制、来源全文展开。
+- 优化界面信息架构，使其更接近可演示的知识库工作台。
+
+## v1.0.0 - 部署与发布版
+
+- Dockerfile、`docker-compose.yml` 和数据目录持久化方案。
+- 基础鉴权，避免公网部署时直接暴露上传和问答接口。
+- Nginx / 云服务器部署文档。
 - 架构图、演示截图和部署文档。
 - Release notes 和完整项目复盘。
+- GitHub Actions 自动运行 `ruff` 和 `pytest`。

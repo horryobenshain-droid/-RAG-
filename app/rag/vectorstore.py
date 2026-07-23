@@ -35,7 +35,7 @@ def similarity_search_with_scores(
     settings: Settings,
 ) -> list[tuple[Document, float | None]]:
     vectorstore = get_vectorstore(settings)
-    fetch_k = max(top_k * 4, top_k)
+    fetch_k = max(top_k * 8, 40)
     try:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="Relevance scores must be between 0 and 1")

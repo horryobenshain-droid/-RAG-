@@ -22,3 +22,29 @@ def test_hybrid_rerank_boosts_keyword_and_symbol_matches() -> None:
     assert results[0][0] is weak_vector_good_keyword
     assert "qmi" in results[0][1].matched_keywords
     assert results[0][1].final_score > results[1][1].final_score
+
+
+def test_hybrid_rerank_distinguishes_modular_from_matrix_power() -> None:
+    modular_power = Document(
+        page_content=(
+            "快速幂 ll qpow(ll a, ll b, ll mod) { "
+            "while (b) { if (b & 1) res = res * a % mod; b >>= 1; } }"
+        ),
+        metadata={"original_file_name": "算法模板.pdf"},
+    )
+    matrix_power = Document(
+        page_content=(
+            "矩阵快速幂 using Matrix = vector<vector<ll>>; "
+            "Matrix mpow(Matrix a, ll b, ll mod) { return a; }"
+        ),
+        metadata={"original_file_name": "算法模板.pdf"},
+    )
+
+    results = rerank_with_keywords(
+        "请给出 C++ 模意义快速幂模板，只讲快速幂，并说明复杂度和边界条件。",
+        [(matrix_power, 0.52), (modular_power, 0.39)],
+        top_k=2,
+    )
+
+    assert results[0][0] is modular_power
+    assert {"qpow", "mod", "快速幂"} <= set(results[0][1].matched_keywords)

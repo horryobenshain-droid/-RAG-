@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     ollama_chat_model: str = "qwen2.5:7b"
     ollama_temperature: float = Field(default=0.2, ge=0)
     ollama_num_ctx: int = Field(default=8192, gt=0)
+    ollama_num_predict: int = Field(default=1024, gt=0)
+    ollama_top_p: float = Field(default=0.9, gt=0, le=1)
+    ollama_repeat_penalty: float = Field(default=1.1, ge=1)
     ollama_timeout_seconds: float = Field(default=120.0, gt=0)
 
     local_embedding_model: str = "BAAI/bge-small-zh-v1.5"
