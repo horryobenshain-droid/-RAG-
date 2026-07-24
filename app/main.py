@@ -1,9 +1,9 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.api.routes import router
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 
 settings = get_settings()
 
@@ -15,8 +15,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=settings.cors_origins,
+    allow_credentials=bool(settings.cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -25,15 +25,17 @@ app.include_router(router)
 
 
 @app.get("/health")
-def health() -> dict[str, str | int]:
+def health(
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> dict[str, object]:
     return {
         "status": "ok",
         "version": __version__,
         "environment": settings.app_env,
         "llm_provider": settings.llm_provider,
-        "llm_model": _llm_model_name(),
+        "llm_model": _llm_model_name(settings),
         "embedding_provider": settings.embedding_provider,
-        "embedding_model": _embedding_model_name(),
+        "embedding_model": _embedding_model_name(settings),
         "retrieval_strategy": settings.retrieval_strategy,
         "default_top_k": settings.default_top_k,
         "retrieval_fetch_k": settings.retrieval_fetch_k,
@@ -42,7 +44,7 @@ def health() -> dict[str, str | int]:
     }
 
 
-def _llm_model_name() -> str:
+def _llm_model_name(settings: Settings) -> str:
     if settings.llm_provider == "openai":
         return settings.openai_chat_model
     if settings.llm_provider == "ollama":
@@ -50,7 +52,7 @@ def _llm_model_name() -> str:
     return "demo-snippet-answer"
 
 
-def _embedding_model_name() -> str:
+def _embedding_model_name(settings: Settings) -> str:
     if settings.embedding_provider == "local":
         return settings.local_embedding_model
     if settings.embedding_provider == "openai":

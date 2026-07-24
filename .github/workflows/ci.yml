@@ -30,3 +30,9 @@ jobs:
 
       - name: Test
         run: pytest -q
+
+      - name: Validate deployment configuration
+        run: |
+          cp .env.production.example .env.production
+          printf '%s' 'ci-validation-password' > deploy/secrets/auth_password
+          docker compose --env-file .env.production config --quiet

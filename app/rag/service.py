@@ -6,7 +6,8 @@ from langchain_core.documents import Document
 
 from app.core.config import Settings
 from app.core.files import calculate_sha256
-from app.core.registry import DocumentRecord, DocumentRegistry, utc_now
+from app.core.registry import DocumentRecord, DocumentRegistry, RepositoryRegistry, utc_now
+from app.core.repositories import module_path_for, repository_relative_path
 from app.loaders.local_loader import load_local_file
 from app.rag.hybrid_retriever import HybridScore, rerank_with_keywords
 from app.rag.llm import AnswerMode, generate_answer
@@ -34,6 +35,18 @@ class IngestResult:
         self.file_hash = file_hash
         self.chunks_indexed = chunks_indexed
         self.original_file_name = original_file_name
+
+
+class PreparedIngest:
+    def __init__(
+        self,
+        result: IngestResult,
+        chunks: list[Document],
+        record: DocumentRecord,
+    ) -> None:
+        self.result = result
+        self.chunks = chunks
+        self.record = record
 
 
 class RetrievedSource:
@@ -85,13 +98,41 @@ def ingest_file(
     path: Path,
     settings: Settings,
     original_file_name: str | None = None,
+    repository_id: str | None = None,
+    repository_name: str | None = None,
+    repository_root: Path | None = None,
 ) -> IngestResult:
+    prepared = prepare_ingest_file(
+        path,
+        settings,
+        original_file_name=original_file_name,
+        repository_id=repository_id,
+        repository_name=repository_name,
+        repository_root=repository_root,
+    )
+    add_documents(prepared.chunks, settings)
+    DocumentRegistry(settings.registry_path).add(prepared.record)
+    return prepared.result
+
+
+def prepare_ingest_file(
+    path: Path,
+    settings: Settings,
+    original_file_name: str | None = None,
+    repository_id: str | None = None,
+    repository_name: str | None = None,
+    repository_root: Path | None = None,
+) -> PreparedIngest:
     _ensure_embedding_config_matches_active_documents(settings)
     documents = load_local_file(path)
     document_id = uuid4().hex
     file_hash = calculate_sha256(path)
     ingested_at = utc_now()
-    display_name = original_file_name or path.name
+    relative_path = (
+        repository_relative_path(path, repository_root) if repository_root is not None else None
+    )
+    display_name = original_file_name or relative_path or path.name
+    module_path = module_path_for(relative_path) if relative_path else None
 
     for document in documents:
         document.metadata.update(
@@ -103,35 +144,45 @@ def ingest_file(
                 "ingested_at": ingested_at,
             }
         )
+        if repository_id:
+            document.metadata["repository_id"] = repository_id
+        if repository_name:
+            document.metadata["repository_name"] = repository_name
+        if relative_path:
+            document.metadata["relative_path"] = relative_path
+            document.metadata["source"] = relative_path
+        if module_path:
+            document.metadata["module_path"] = module_path
 
     chunks = split_documents(documents, settings)
     for chunk in chunks:
         chunk.metadata["chunk_count"] = len(chunks)
 
-    chunks_indexed = add_documents(chunks, settings)
-    registry = DocumentRegistry(settings.registry_path)
-    registry.add(
-        DocumentRecord(
-            document_id=document_id,
-            original_file_name=display_name,
-            stored_file_name=path.name,
-            saved_path=str(path),
-            extension=path.suffix.lower(),
-            file_hash=file_hash,
-            chunks_indexed=chunks_indexed,
-            embedding_provider=settings.embedding_provider,
-            embedding_model=_embedding_model_name(settings),
-            llm_provider=settings.llm_provider,
-            status="active",
-            created_at=ingested_at,
-        )
-    )
-    return IngestResult(
+    record = DocumentRecord(
         document_id=document_id,
-        file_hash=file_hash,
-        chunks_indexed=chunks_indexed,
         original_file_name=display_name,
+        stored_file_name=path.name,
+        saved_path=str(path),
+        extension=path.suffix.lower(),
+        file_hash=file_hash,
+        chunks_indexed=len(chunks),
+        embedding_provider=settings.embedding_provider,
+        embedding_model=_embedding_model_name(settings),
+        llm_provider=settings.llm_provider,
+        status="active",
+        created_at=ingested_at,
+        repository_id=repository_id,
+        repository_name=repository_name,
+        relative_path=relative_path,
+        module_path=module_path,
     )
+    result = IngestResult(
+        document_id=record.document_id,
+        file_hash=record.file_hash,
+        chunks_indexed=record.chunks_indexed,
+        original_file_name=record.original_file_name,
+    )
+    return PreparedIngest(result=result, chunks=chunks, record=record)
 
 
 def answer_question(
@@ -230,6 +281,10 @@ def clear_knowledge_base(settings: Settings) -> tuple[int, int]:
     active_documents = registry.clear()
     chunks_deleted = count_vectors(settings)
     reset_vectorstore(settings)
+    RepositoryRegistry(settings.repository_registry_path).clear()
+    from app.rag.repository_service import clear_repository_files
+
+    clear_repository_files(settings)
     return active_documents, chunks_deleted
 
 

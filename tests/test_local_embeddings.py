@@ -1,11 +1,12 @@
 from typing import Any
 
 from app.core.config import Settings
-from app.rag.embeddings import get_embeddings
+from app.rag.embeddings import _get_embeddings_cached, get_embeddings
 from app.rag.service import _embedding_model_name
 
 
 def test_local_embedding_provider_uses_configured_model(monkeypatch: Any) -> None:
+    _get_embeddings_cached.cache_clear()
     captured: dict[str, Any] = {}
 
     class FakeHuggingFaceEmbeddings:
@@ -28,5 +29,8 @@ def test_local_embedding_provider_uses_configured_model(monkeypatch: Any) -> Non
 
     assert isinstance(embeddings, FakeHuggingFaceEmbeddings)
     assert captured["model_name"] == "BAAI/bge-small-zh-v1.5"
+    assert captured["model_kwargs"] == {"local_files_only": True}
     assert captured["encode_kwargs"] == {"normalize_embeddings": True}
     assert _embedding_model_name(settings) == "BAAI/bge-small-zh-v1.5"
+    assert get_embeddings(settings) is embeddings
+    _get_embeddings_cached.cache_clear()

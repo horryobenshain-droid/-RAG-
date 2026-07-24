@@ -4,6 +4,38 @@
 
 - No unreleased changes yet.
 
+## 1.0.0 - 2026-07-24
+
+- Add a non-root Python application image for FastAPI and Streamlit.
+- Add Docker Compose services for Nginx, Streamlit, FastAPI, Ollama and model initialization.
+- Persist application data, HuggingFace caches and Ollama models in separate named volumes.
+- Protect the public entry point with file-backed Nginx Basic Auth and keep internal services private.
+- Add CPU and NVIDIA GPU deployment modes with health checks and restart policies.
+- Restrict FastAPI CORS to configurable origins instead of allowing every origin.
+- Add Windows and Linux deployment helpers, production environment templates and backup guidance.
+- Validate deployment configuration in CI and document upgrade, rollback and release workflows.
+
+## 0.9.0 - 2026-07-24
+
+- Reorganize Streamlit into chat, knowledge base and configuration workspaces.
+- Add validated, persistent runtime configuration APIs for model and retrieval settings.
+- Add OpenAI, Ollama Qwen/Llama and Embedding selection without restarting the backend.
+- Report provider connectivity, discovered Ollama models and knowledge base statistics.
+- Add visual controls for generation, chunking, retrieval, hybrid ranking and reranking.
+- Export chat history as Markdown and expose complete, copyable source chunks.
+- Warn when the active Embedding configuration no longer matches the stored index.
+
+## 0.8.0 - 2026-07-24
+
+- Add safe ZIP repository upload and batch indexing with configurable file and size limits.
+- Ignore VCS metadata, dependencies, virtual environments, build output and binary files.
+- Preserve repository, relative path, module path, language, symbol and line metadata.
+- Add repository listing, deletion and staged index rebuilding APIs and UI actions.
+- Add a repository-focused evaluation case and reproducible code corpus fixture.
+- Cache Embedding model instances instead of reloading local model weights for every query.
+- Cap interactive Top K at 10 and reduce the default Ollama output limit to avoid oversized requests.
+- Let the Streamlit chat timeout outlast the backend model timeout and show a clearer error.
+
 ## 0.7.0 - 2026-07-23
 
 - Add similarity and MMR retrieval strategies with request-level switching.

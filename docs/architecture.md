@@ -1,5 +1,25 @@
 # 架构说明
 
+## 部署拓扑
+
+```mermaid
+flowchart LR
+    U[浏览器] -->|HTTPS| P[宿主机 TLS / 隧道]
+    P --> N[Nginx Basic Auth]
+    N --> S[Streamlit]
+    S --> A[FastAPI]
+    A --> O[Ollama]
+    A --> D[(RAG 数据卷)]
+    A --> H[(HuggingFace 缓存卷)]
+    O --> M[(Ollama 模型卷)]
+```
+
+- Nginx 是 Compose 唯一映射到宿主机的服务，默认仅监听 `127.0.0.1:8080`。
+- Streamlit 通过内部地址 `http://backend:8000` 调用 FastAPI，浏览器不直连后端。
+- FastAPI 通过内部地址 `http://ollama:11434` 调用 Ollama。
+- `rag_data` 是必须备份的业务数据卷；两个模型缓存卷可通过重新下载恢复。
+- 公网 HTTPS 由宿主机 Nginx、Caddy、Cloudflare Tunnel 或同类入口终止。
+
 ## RAG 流程
 
 1. 用户通过 Streamlit 或 FastAPI 上传本地文件。
@@ -10,12 +30,16 @@
 6. Embedding Provider 将 chunk 转成向量。
 7. Chroma 将向量和元数据持久化到 `data/chroma/`。
 8. 文档注册表将文件级生命周期信息写入 `data/registry.json`。
-9. 用户提问时，Retriever 复用一次查询向量，以 similarity 或 MMR 从 `fetch_k` 候选中召回。
-10. Hybrid Reranker 根据可配置的向量分、关键词、文件名和函数名权重进行初次重排。
-11. 启用 CrossEncoder 时，对限定数量的候选执行语义二次重排；默认关闭并按需懒加载。
-12. Answer Policy 根据回答模式选择严格知识库 Prompt 或增强 Prompt。
-13. LLM 根据检索片段、Prompt 和回答模式生成回答。
-14. API 返回回答、来源评分、命中原因、初始排名、分阶段耗时、模型配置和答案依据。
+9. ZIP 代码库先执行路径校验、大小限制、忽略规则和二进制检测，再解压至隔离目录。
+10. 代码库注册表记录代码库级文件数、chunk 数、源文件目录和索引生命周期。
+11. 用户提问时，Retriever 复用一次查询向量，以 similarity 或 MMR 从 `fetch_k` 候选中召回。
+12. Hybrid Reranker 根据可配置的向量分、关键词、文件名和函数名权重进行初次重排。
+13. 启用 CrossEncoder 时，对限定数量的候选执行语义二次重排；默认关闭并按需懒加载。
+14. Answer Policy 根据回答模式选择严格知识库 Prompt 或增强 Prompt。
+15. LLM 根据检索片段、Prompt 和回答模式生成回答。
+16. API 返回回答、来源评分、命中原因、路径元数据、分阶段耗时、模型配置和答案依据。
+17. 配置中心通过 `/api/config` 校验并原子写入 `data/runtime_config.json`，随后请求使用新配置。
+18. `/api/status` 汇总 Provider 连通性、可用 Ollama 模型与知识库统计。
 
 ## 评估流程
 
@@ -29,9 +53,10 @@
 ## 模块
 
 - `app/api`：HTTP 路由和请求/响应模型。
-- `app/core/config.py`：环境变量、目录路径和 provider 配置。
+- `app/core/config.py`：环境变量、运行时配置持久化、目录路径和 provider 配置。
 - `app/core/files.py`：文件名清洗、上传保存、哈希计算。
 - `app/core/registry.py`：本地 JSON 文档注册表。
+- `app/core/repositories.py`：ZIP 安全解压、忽略规则、目录扫描和模块路径解析。
 - `app/loaders/local_loader.py`：PDF、Word、文本和代码文件加载。
 - `app/rag/embeddings.py`：demo 哈希向量、OpenAI Embeddings、本地 HuggingFace Embeddings。
 - `app/rag/code_splitter.py`：代码函数/类/行号切分。
@@ -40,11 +65,12 @@
 - `app/rag/vectorstore.py`：Chroma 初始化、检索、删除和重置。
 - `app/rag/llm.py`：Prompt 构造和 OpenAI Responses API 调用。
 - `app/rag/service.py`：入库、问答和知识库管理业务逻辑。
+- `app/rag/repository_service.py`：代码库批量入库、删除、回滚和索引重建。
 - `app/evaluation/models.py`：评估集、模型 profile、单题结果与汇总指标模型。
 - `app/evaluation/runner.py`：批量问答、指标计算和错误隔离。
 - `app/evaluation/report.py`：Markdown 与 JSON 报告生成。
 - `app/evaluation/cli.py`：评估命令行入口与可选语料入库。
-- `ui/streamlit_app.py`：简体中文前端界面。
+- `ui/streamlit_app.py`：对话、知识库和配置中心三视图工作台。
 
 Profile 不允许包含 `OPENAI_API_KEY` 或修改 Embedding 配置。密钥仍由 `.env` 提供；
 所有对比配置必须复用当前知识库的 Embedding 配置，保证召回结果可比。
@@ -109,6 +135,9 @@ Profile 不允许包含 `OPENAI_API_KEY` 或修改 Embedding 配置。密钥仍�
 - `data/uploads/`
 - `data/chroma/`
 - `data/registry.json`
+- `data/repositories/`
+- `data/repositories.json`
+- `data/runtime_config.json`
 - `.env`
 - `eval/eval_report.md`
 - `eval/eval_results.json`

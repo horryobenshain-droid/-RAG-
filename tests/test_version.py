@@ -7,7 +7,7 @@ from app.main import app
 def test_application_exposes_release_version() -> None:
     client = TestClient(app)
 
-    assert __version__ == "0.7.0"
+    assert __version__ == "1.0.0"
     assert app.version == __version__
     health = client.get("/health").json()
     assert health["version"] == __version__

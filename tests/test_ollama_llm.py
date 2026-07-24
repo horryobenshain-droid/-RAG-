@@ -1,5 +1,7 @@
 from typing import Any
 
+import pytest
+import requests
 from langchain_core.documents import Document
 
 from app.core.config import Settings
@@ -83,6 +85,28 @@ def test_ollama_augmented_mode_adds_guidance(monkeypatch: Any) -> None:
     assert "当前回答模式：知识库增强" in user_message
     assert "来源声明最多出现一次" in user_message
     assert "当前没有检索到可用知识库片段" in user_message
+
+
+def test_ollama_missing_model_returns_actionable_error(monkeypatch: Any) -> None:
+    response = requests.Response()
+    response.status_code = 404
+    response.url = "http://127.0.0.1:11434/api/chat"
+    response._content = b'{"error":"model \'qwen3:8b\' not found"}'
+
+    monkeypatch.setattr("app.rag.llm.requests.post", lambda *args, **kwargs: response)
+    settings = Settings(
+        llm_provider="ollama",
+        embedding_provider="demo",
+        ollama_chat_model="qwen3:8b",
+    )
+
+    with pytest.raises(ValueError, match="未安装模型.*qwen3:8b"):
+        generate_answer(
+            "问题",
+            [Document(page_content="检索片段", metadata={})],
+            settings,
+            "strict",
+        )
 
 
 def test_ollama_chat_url_accepts_base_or_api_url() -> None:

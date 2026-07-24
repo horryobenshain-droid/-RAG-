@@ -68,6 +68,7 @@ def test_upload_and_chat_demo_flow(tmp_path: Path) -> None:
         assert payload["sources"][0]["score"] is not None
         assert payload["sources"][0]["retrieval_rank"] == 1
         assert payload["sources"][0]["reasons"]
+        assert "RAG combines retrieval" in payload["sources"][0]["content"]
         assert 0 <= payload["sources"][0]["score"] <= 1
 
         delete_response = client.delete(f"/api/documents/{document_id}")
@@ -105,3 +106,14 @@ def test_clear_knowledge_base_demo_flow(tmp_path: Path) -> None:
         assert payload["chunks_deleted"] == 1
     finally:
         app.dependency_overrides.clear()
+
+
+def test_chat_rejects_excessive_context_size() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/chat",
+        json={"question": "question", "top_k": 31},
+    )
+
+    assert response.status_code == 422

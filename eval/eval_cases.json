@@ -55,6 +55,24 @@
         "通用知识"
       ],
       "require_citation": true
+    },
+    {
+      "id": "repository-ignore-rules",
+      "question": "scan_repository_files 会忽略哪些代码库目录和文件？",
+      "answer_mode": "strict",
+      "top_k": 3,
+      "expected_sources": [
+        {
+          "file_name": "repository_rules.py",
+          "symbol_name": "scan_repository_files"
+        }
+      ],
+      "expected_answer_keywords": [
+        ".git",
+        "node_modules",
+        "binary"
+      ],
+      "require_citation": true
     }
   ]
 }

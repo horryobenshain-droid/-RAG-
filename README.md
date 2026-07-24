@@ -4,8 +4,20 @@
 
 ## 当前版本
 
-`v0.7.0` 已加入可配置的多阶段检索、重排与质量诊断能力：
+`v1.0.0` 已将知识库工作台补齐为可容器化部署和发布的完整版本：
 
+- 生产部署：使用 Docker Compose 编排 Nginx、Streamlit、FastAPI 与 Ollama。
+- 入口保护：Nginx Basic Auth、私有服务网络、显式 CORS 白名单和安全响应头。
+- 数据持久化：应用数据、HuggingFace 缓存与 Ollama 模型使用独立命名卷。
+- 可运维性：健康检查、自动重启、CPU/GPU 模式、备份、升级与回滚说明。
+- 发布质量：GitHub Actions 自动执行 Ruff、pytest 和 Compose 配置校验。
+
+- 三视图工作台：对话、知识库和配置中心各自承载独立任务。
+- 运行时配置：在界面中切换 demo、OpenAI、Ollama Qwen / Llama 和 Embedding。
+- 配置持久化：模型、生成、检索、切分和 Reranker 参数经校验后写入本地配置。
+- 服务状态：展示当前模型、Ollama 连通性、本地模型列表和知识库统计。
+- 对话资产：支持 Markdown 导出、来源全文展开、复制和单独下载。
+- 索引保护：Embedding 配置与现有索引不一致时显示重建提示。
 - 文档上传、解析、切分与 Chroma 向量入库。
 - 文档注册表：记录 `document_id`、文件哈希、入库时间、chunk 数、模型配置。
 - 知识库管理：查看已入库文档、删除单个文档、清空知识库。
@@ -14,6 +26,10 @@
 - 回答模式：支持“严格知识库”和“知识库增强”两种策略。
 - 本地 Embedding：支持 `BAAI/bge-small-zh-v1.5`，适合中文语义检索。
 - 代码感知切分：对代码文件记录语言、函数名、起止行号。
+- 代码库批量入库：上传 ZIP 后自动扫描、过滤并批量建立索引。
+- 路径元数据：保留代码库、相对路径、模块路径、代码符号与行号。
+- 代码库管理：支持按代码库查看、删除源文件与索引，以及原位重建索引。
+- 安全过滤：拒绝路径穿越，限制文件数量与大小，忽略依赖、构建产物和二进制文件。
 - 混合检索：结合向量分、关键词命中、文件名和函数名命中重排结果。
 - 检索策略：支持 similarity 与 MMR，并可在每次问答时切换。
 - 可选 Reranker：通过 CrossEncoder 对初召回候选执行二次语义重排。
@@ -23,7 +39,7 @@
 - 批量模型对比：在同一知识库上比较 OpenAI、Ollama Qwen 和 Ollama Llama。
 - 评估指标：输出 Recall@K、引用命中率、关键词召回率、通过率和延迟。
 - 评估报告：同时生成 Markdown 审阅报告和 JSON 结构化结果。
-- 简体中文 Streamlit 界面。
+- 简体中文 Streamlit 产品化工作台。
 - demo / OpenAI / Ollama 三种 LLM provider 模式。
 
 ## 技术栈
@@ -38,6 +54,7 @@
 - Sentence Transformers / HuggingFace Embeddings
 - Sentence Transformers CrossEncoder Reranker
 - PyPDF / docx2txt
+- Docker Compose / Nginx
 
 ## 快速开始
 
@@ -72,9 +89,23 @@ Windows 一键启动：
 - API 文档：[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - 健康检查：[http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
 
+生产容器部署：
+
+```powershell
+.\deploy\start.ps1 start
+```
+
+默认入口为 [http://127.0.0.1:8080](http://127.0.0.1:8080)，首次启动会要求创建访问密码，
+并自动拉取 `.env.production` 中配置的 Ollama 模型。完整的 HTTPS、GPU、备份与升级说明见
+[部署文档](docs/deployment.md)。
+
 ## 模型配置
 
 默认使用 `demo` 模式，不需要 API Key，可以先验证上传、入库、检索、来源展示和知识库管理流程。
+
+启动服务后可直接在“配置中心”修改模型和检索设置。保存后的运行时配置位于
+`data/runtime_config.json`，优先级高于 `.env`，且不会提交到 Git。OpenAI API Key 可写入该本地文件，
+但配置查询接口只返回是否已配置，不会回显密钥。修改 Embedding 或 chunk 参数后应清空并重新入库。
 
 要启用 OpenAI，请编辑 `.env`：
 
@@ -122,7 +153,7 @@ OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_CHAT_MODEL=qwen2.5:7b
 OLLAMA_TEMPERATURE=0.2
 OLLAMA_NUM_CTX=8192
-OLLAMA_NUM_PREDICT=1024
+OLLAMA_NUM_PREDICT=512
 OLLAMA_TOP_P=0.9
 OLLAMA_REPEAT_PENALTY=1.1
 OLLAMA_TIMEOUT_SECONDS=120
@@ -162,9 +193,28 @@ RERANKER_WEIGHT=0.60
 `CHUNK_SIZE` 或 `CHUNK_OVERLAP` 修改后必须清空知识库并重新入库；四个
 `HYBRID_*_WEIGHT` 之和必须为 1。
 
+## 代码库批量入库
+
+在前端选择 `.zip` 文件即可按代码库入库。压缩包可以包含一个公共根目录；入库时会自动
+去掉该目录，并保留其余相对路径。`.git`、`node_modules`、`.venv`、`dist`、`build`、
+`target`、缓存目录、不支持的文件类型和二进制文件会被忽略。
+
+默认安全限制如下，可在 `.env` 中调整：
+
+```env
+REPOSITORY_MAX_ARCHIVE_BYTES=26214400
+REPOSITORY_MAX_FILES=2000
+REPOSITORY_MAX_FILE_BYTES=2097152
+REPOSITORY_MAX_TOTAL_BYTES=52428800
+API_INGEST_TIMEOUT_SECONDS=600
+```
+
+代码库重建使用已安全解压的源文件。新向量全部写入成功后才会替换旧索引；删除代码库会
+同时删除其文档注册记录、向量和持久化源文件。
+
 ## RAG 评估
 
-仓库提供一个可复现的小型评估集和三份示例语料。以下命令会先入库尚未存在的示例文件，
+仓库提供一个可复现的小型评估集和四份示例语料。以下命令会先入库尚未存在的示例文件，
 再使用当前 `.env` 中的模型运行评估：
 
 ```powershell
@@ -211,6 +261,10 @@ OpenAI Key 继续从 `.env` 读取；Ollama profile 对应的模型需要提前�
 
 - `GET /health`：健康检查，包含当前版本、模型与默认检索配置。
 - `POST /api/upload`：上传并入库文档。
+- `POST /api/repositories/upload`：上传 ZIP 并批量入库代码库。
+- `GET /api/repositories`：查看已入库代码库。
+- `POST /api/repositories/{repository_id}/reindex`：重建指定代码库索引。
+- `DELETE /api/repositories/{repository_id}`：删除指定代码库、源文件和索引。
 - `POST /api/chat`：基于知识库问答。
 - `GET /api/documents`：查看已入库文档。
 - `DELETE /api/documents/{document_id}`：删除单个文档及其向量。
@@ -235,6 +289,8 @@ curl -X POST http://127.0.0.1:8000/api/chat `
 - `sources[].retrieval_rank` / `sources[].reasons`：初始排名和可读命中原因。
 - `sources[].matched_keywords`：命中的关键词。
 - `sources[].symbol_name` / `start_line` / `end_line`：代码片段定位信息。
+- `sources[].repository_id` / `repository_name`：代码库标识与名称。
+- `sources[].relative_path` / `module_path`：代码文件相对路径与模块路径。
 - `answer_mode`：回答模式，`strict` 或 `augmented`。
 - `answer_basis`：答案依据，`knowledge_base`、`model_prior` 或 `mixed`。
 - `elapsed_ms`：检索与生成耗时。
@@ -257,8 +313,11 @@ curl -X POST http://127.0.0.1:8000/api/chat `
 │  └─ main.py           # FastAPI 应用入口
 ├─ data/
 │  ├─ uploads/          # 用户上传文件，默认不提交
+│  ├─ repositories/     # 安全解压后的代码库源文件，默认不提交
 │  ├─ chroma/           # Chroma 持久化数据，默认不提交
-│  └─ registry.json     # 文档注册表，默认不提交
+│  ├─ registry.json     # 文档注册表，默认不提交
+│  ├─ repositories.json # 代码库注册表，默认不提交
+│  └─ runtime_config.json # 运行时配置，默认不提交
 ├─ docs/
 │  ├─ architecture.md
 │  └─ roadmap.md
@@ -269,7 +328,16 @@ curl -X POST http://127.0.0.1:8000/api/chat `
 ├─ tests/
 ├─ ui/
 │  └─ streamlit_app.py
+├─ deploy/
+│  ├─ nginx/           # Nginx 入口、WebSocket 代理与 Basic Auth
+│  ├─ secrets/         # 本地部署密码目录，内容不提交
+│  ├─ start.ps1        # Windows Compose 部署助手
+│  └─ start.sh         # Linux Compose 部署助手
+├─ Dockerfile
+├─ docker-compose.yml
+├─ docker-compose.gpu.yml
 ├─ .env.example
+├─ .env.production.example
 ├─ pyproject.toml
 └─ requirements.txt
 ```
@@ -290,8 +358,11 @@ pytest -q
 - `v0.5.0`：接入 Ollama，支持 Qwen / Llama 本地模型。
 - `v0.6.0`：评估数据集、批量模型对比、质量指标和 Markdown/JSON 报告。
 - `v0.7.0`：MMR / similarity、CrossEncoder Reranker、参数化检索和来源诊断。
+- `v0.8.0`：ZIP 代码库批量入库、路径元数据、过滤规则和代码库级索引管理。
+- `v0.9.0`：产品化工作台、运行时配置中心、模型状态和对话导出。
+- `v1.0.0`：Docker Compose、Nginx 鉴权、持久化、健康检查和发布流程。
 
-后续目标是把项目从“可运行的 RAG demo”升级为“可评估、可部署、可配置、可信任的专业知识库应用”。
+当前版本已经形成从本地 RAG、质量评估、产品化配置到受保护部署的完整闭环。
 
 ### v0.7.0 - 检索质量优化（已完成）
 
@@ -300,29 +371,29 @@ pytest -q
 - 已配置化 `top_k`、`fetch_k`、chunk、MMR 和重排权重。
 - 已增强检索诊断与评测 profile，可直接比较不同检索组合。
 
-### v0.8.0 - 代码库批量入库
+### v0.8.0 - 代码库批量入库（已完成）
 
-- 支持 zip 上传和批量文件解析。
-- 自动忽略 `.git`、`node_modules`、`.venv`、`dist`、二进制文件和构建产物。
-- 保留目录路径、模块路径和代码符号信息作为来源元数据。
-- 支持按代码库删除、重建索引。
-- 增加代码库问答评测样例。
+- 已支持 ZIP 上传、安全解压和批量文件解析。
+- 已自动忽略 `.git`、`node_modules`、`.venv`、`dist`、二进制文件和构建产物。
+- 已保留代码库 ID、目录路径、模块路径和代码符号信息作为来源元数据。
+- 已支持按代码库删除源文件与索引，以及分阶段重建索引。
+- 已增加代码库问答评测样例。
 
-### v0.9.0 - 产品化 UI 与配置中心
+### v0.9.0 - 产品化 UI 与配置中心（已完成）
 
-- 在 Streamlit 中选择 LLM Provider 和模型，例如 OpenAI、Qwen、Llama。
-- 展示当前模型状态、Ollama 连通性、Embedding 配置和知识库统计。
-- 增加模型参数、检索参数和回答模式的可视化配置。
-- 支持聊天历史导出、来源复制、来源全文展开。
-- 优化界面信息架构，使其更接近可演示的知识库工作台。
+- 已支持在 Streamlit 中选择 LLM Provider 和 OpenAI、Qwen、Llama 模型。
+- 已展示当前模型状态、Ollama 连通性、Embedding 配置和知识库统计。
+- 已增加模型参数、检索参数、切分参数和回答模式的可视化配置。
+- 已支持聊天历史导出、来源复制、来源下载和全文展开。
+- 已将界面重组为对话工作台、知识库和配置中心。
 
-### v1.0.0 - 部署与发布版
+### v1.0.0 - 部署与发布版（已完成）
 
-- 增加 Dockerfile、`docker-compose.yml` 和数据目录持久化方案。
-- 增加基础鉴权，避免公网部署时直接暴露上传和问答接口。
-- 补充 Nginx / 云服务器部署文档。
-- 增加架构图、演示截图、Release notes 和完整项目复盘。
-- 使用 GitHub Actions 自动运行 `ruff` 和 `pytest`。
+- 已增加 Dockerfile、`docker-compose.yml` 和三个独立持久卷。
+- 已使用 Nginx Basic Auth 保护唯一公开入口，FastAPI 与 Ollama 不映射宿主机端口。
+- 已补充 Nginx、HTTPS、GPU、备份、升级和发布文档。
+- 已增加部署架构图与 `v1.0.0` Release notes。
+- 已使用 GitHub Actions 自动运行 Ruff、pytest 和 Compose 配置校验。
 
 ## Git 工作流
 
@@ -338,6 +409,6 @@ git push origin feature/code-repository-rag
 稳定版本可以打 tag：
 
 ```powershell
-git tag v0.2.0
-git push origin v0.2.0
+git tag v1.0.0
+git push origin v1.0.0
 ```

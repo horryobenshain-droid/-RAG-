@@ -57,27 +57,26 @@
 - 已增强来源诊断，展示各信号分数、初始排名、命中原因和分阶段耗时。
 - 已扩展 v0.6.0 评测 profile 与报告，可对比检索和 Reranker 配置。
 
-## v0.8.0 - 代码库批量入库
+## v0.8.0 - 代码库批量入库（已完成）
 
-- 支持 zip 上传和批量文件解析。
-- 自动忽略 `.git`、`node_modules`、`.venv`、`dist`、二进制文件和构建产物。
-- 保留目录路径、模块路径和代码符号信息作为来源元数据。
-- 支持按代码库删除、重建索引。
-- 增加代码库问答评测样例。
+- 已支持 ZIP 上传、安全解压和批量文件解析。
+- 已自动忽略 `.git`、`node_modules`、`.venv`、`dist`、二进制文件和构建产物。
+- 已保留代码库 ID、目录路径、模块路径和代码符号信息作为来源元数据。
+- 已支持按代码库删除源文件与索引，以及分阶段重建索引。
+- 已增加代码库问答评测样例。
 
-## v0.9.0 - 产品化 UI 与配置中心
+## v0.9.0 - 产品化 UI 与配置中心（已完成）
 
-- 在 Streamlit 中选择 LLM Provider 和模型，例如 OpenAI、Qwen、Llama。
-- 展示当前模型状态、Ollama 连通性、Embedding 配置和知识库统计。
-- 增加模型参数、检索参数和回答模式的可视化配置。
-- 支持聊天历史导出、来源复制、来源全文展开。
-- 优化界面信息架构，使其更接近可演示的知识库工作台。
+- 已支持在 Streamlit 中选择 LLM Provider 和 OpenAI、Qwen、Llama 模型。
+- 已展示当前模型状态、Ollama 连通性、Embedding 配置和知识库统计。
+- 已增加模型参数、检索参数、切分参数和回答模式的可视化配置。
+- 已支持聊天历史导出、来源复制、来源下载和全文展开。
+- 已将界面重组为对话工作台、知识库和配置中心。
 
-## v1.0.0 - 部署与发布版
+## v1.0.0 - 部署与发布版（已完成）
 
-- Dockerfile、`docker-compose.yml` 和数据目录持久化方案。
-- 基础鉴权，避免公网部署时直接暴露上传和问答接口。
-- Nginx / 云服务器部署文档。
-- 架构图、演示截图和部署文档。
-- Release notes 和完整项目复盘。
-- GitHub Actions 自动运行 `ruff` 和 `pytest`。
+- 已增加 Dockerfile、`docker-compose.yml`、CPU/GPU 模式和数据持久化方案。
+- 已增加 Nginx Basic Auth，FastAPI、Streamlit 与 Ollama 仅通过容器网络通信。
+- 已补充 Nginx、HTTPS、健康检查、备份、升级与回滚文档。
+- 已增加部署架构图和 Release notes。
+- 已使用 GitHub Actions 自动运行 Ruff、pytest 和 Compose 配置校验。

@@ -158,16 +158,25 @@ def _generate_with_ollama(
             timeout=settings.ollama_timeout_seconds,
         )
         response.raise_for_status()
+    except requests.Timeout as exc:
+        msg = "Ollama 响应超时，请稍后重试或调低上下文长度。"
+        raise ValueError(msg) from exc
+    except requests.ConnectionError as exc:
+        msg = "无法连接 Ollama 服务，请确认 Ollama 已启动。"
+        raise ValueError(msg) from exc
+    except requests.HTTPError as exc:
+        raise ValueError(
+            _ollama_http_error_message(response, settings.ollama_chat_model)
+        ) from exc
     except requests.RequestException as exc:
-        msg = (
-            "调用 Ollama 失败，请确认 Ollama 已启动且模型已拉取。\n"
-            f"地址：{chat_url}\n"
-            f"模型：{settings.ollama_chat_model}\n"
-            f"错误：{exc}"
-        )
+        msg = "调用 Ollama 失败，请检查本地服务配置后重试。"
         raise ValueError(msg) from exc
 
-    data = response.json()
+    try:
+        data = response.json()
+    except ValueError as exc:
+        msg = "Ollama 返回了无法解析的响应。"
+        raise ValueError(msg) from exc
     content = data.get("message", {}).get("content")
     if not content:
         msg = "Ollama 未返回有效回答内容。"
@@ -186,6 +195,25 @@ def _ollama_chat_url(base_url: str) -> str:
     if normalized.endswith("/api"):
         return f"{normalized}/chat"
     return f"{normalized}/api/chat"
+
+
+def _ollama_http_error_message(response: requests.Response, model: str) -> str:
+    try:
+        payload = response.json()
+        detail = str(payload.get("error", "")).strip()
+    except (TypeError, ValueError):
+        detail = response.text.strip()
+
+    if response.status_code == 404 and "model" in detail.casefold():
+        return (
+            f"Ollama 中未安装模型“{model}”。"
+            "请在配置中心选择已安装模型，或先使用 ollama pull 拉取该模型。"
+        )
+    if response.status_code == 404:
+        return "Ollama Chat 接口不可用，请检查 Ollama Base URL。"
+    if detail:
+        return f"Ollama 请求失败：{detail}"
+    return f"Ollama 请求失败，HTTP 状态码 {response.status_code}。"
 
 
 def _clean_model_answer(content: str) -> str:

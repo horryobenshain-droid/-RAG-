@@ -19,13 +19,20 @@ env/
 .env
 .env.*
 !.env.example
+!.env.production.example
+deploy/secrets/*
+!deploy/secrets/.gitkeep
 
 # Runtime data
 data/uploads/*
 data/chroma/*
 data/registry.json
+data/repositories/*
+data/repositories.json
+data/runtime_config.json
 !data/uploads/.gitkeep
 !data/chroma/.gitkeep
+!data/repositories/.gitkeep
 
 # Generated evaluation output and local model selections
 eval/eval_report.md

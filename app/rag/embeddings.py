@@ -1,5 +1,6 @@
 import hashlib
 import math
+from functools import lru_cache
 
 from langchain_core.embeddings import Embeddings
 
@@ -33,25 +34,49 @@ class HashEmbeddings(Embeddings):
 
 
 def get_embeddings(settings: Settings) -> Embeddings:
-    if settings.embedding_provider == "local":
+    return _get_embeddings_cached(
+        settings.embedding_provider,
+        settings.local_embedding_model,
+        settings.openai_embedding_model,
+        settings.openai_api_key,
+        settings.openai_base_url,
+    )
+
+
+@lru_cache(maxsize=8)
+def _get_embeddings_cached(
+    provider: str,
+    local_model: str,
+    openai_model: str,
+    openai_api_key: str | None,
+    openai_base_url: str | None,
+) -> Embeddings:
+    if provider == "local":
         from langchain_huggingface import HuggingFaceEmbeddings
 
-        return HuggingFaceEmbeddings(
-            model_name=settings.local_embedding_model,
-            encode_kwargs={"normalize_embeddings": True},
-        )
+        try:
+            return HuggingFaceEmbeddings(
+                model_name=local_model,
+                model_kwargs={"local_files_only": True},
+                encode_kwargs={"normalize_embeddings": True},
+            )
+        except OSError:
+            return HuggingFaceEmbeddings(
+                model_name=local_model,
+                encode_kwargs={"normalize_embeddings": True},
+            )
 
-    if settings.embedding_provider == "openai":
-        if not settings.openai_api_key:
+    if provider == "openai":
+        if not openai_api_key:
             msg = "OPENAI_API_KEY is required when EMBEDDING_PROVIDER=openai."
             raise ValueError(msg)
 
         from langchain_openai import OpenAIEmbeddings
 
         return OpenAIEmbeddings(
-            model=settings.openai_embedding_model,
-            api_key=settings.openai_api_key,
-            base_url=settings.openai_base_url,
+            model=openai_model,
+            api_key=openai_api_key,
+            base_url=openai_base_url,
         )
 
     return HashEmbeddings()

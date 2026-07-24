@@ -1,0 +1,134 @@
+name: rag-studio
+
+services:
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - rag_internal
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  ollama-model:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    restart: "no"
+    env_file:
+      - .env.production
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        test -n "$${OLLAMA_CHAT_MODEL}" &&
+        ollama pull "$${OLLAMA_CHAT_MODEL}"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - rag_internal
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${RAG_IMAGE:-rag-studio:1.0.0}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      APP_ENV: production
+      OLLAMA_BASE_URL: http://ollama:11434
+    volumes:
+      - rag_data:/app/data
+      - huggingface_cache:/home/rag/.cache/huggingface
+    depends_on:
+      ollama-model:
+        condition: service_completed_successfully
+    networks:
+      - rag_internal
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)
+      interval: 15s
+      timeout: 6s
+      retries: 10
+      start_period: 30s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${RAG_IMAGE:-rag-studio:1.0.0}
+    restart: unless-stopped
+    environment:
+      API_BASE_URL: http://backend:8000
+      API_CHAT_TIMEOUT_SECONDS: 150
+      API_INGEST_TIMEOUT_SECONDS: 600
+    command:
+      - python
+      - -m
+      - streamlit
+      - run
+      - ui/streamlit_app.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
+      - --server.headless=true
+      - --browser.gatherUsageStats=false
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - rag_internal
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=5)
+      interval: 15s
+      timeout: 6s
+      retries: 10
+      start_period: 30s
+
+  nginx:
+    build:
+      context: .
+      dockerfile: deploy/nginx/Dockerfile
+    image: ${RAG_NGINX_IMAGE:-rag-studio-nginx:1.0.0}
+    restart: unless-stopped
+    environment:
+      NGINX_ENVSUBST_FILTER: ^RAG_
+      RAG_AUTH_USER: ${RAG_AUTH_USER:-admin}
+      RAG_MAX_BODY_SIZE: ${RAG_MAX_BODY_SIZE:-64m}
+    volumes:
+      - ./deploy/secrets:/run/rag-secrets:ro
+    ports:
+      - "${RAG_BIND_ADDRESS:-127.0.0.1}:${RAG_HTTP_PORT:-8080}:80"
+    depends_on:
+      frontend:
+        condition: service_healthy
+    networks:
+      - rag_internal
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/healthz >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+networks:
+  rag_internal:
+    driver: bridge
+
+volumes:
+  rag_data:
+  huggingface_cache:
+  ollama_data:
