@@ -58,6 +58,8 @@
 
 ## 快速开始
 
+首次使用界面前，建议先阅读[知识库使用说明](docs/user-guide.md)。
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
