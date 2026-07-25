@@ -4,6 +4,7 @@ FROM python:3.11-slim-bookworm
 
 ARG APP_UID=10001
 ARG APP_GID=10001
+ARG PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -21,6 +22,7 @@ WORKDIR /app
 
 COPY requirements.txt ./
 RUN python -m pip install --upgrade pip \
+    && python -m pip install --index-url "${PYTORCH_INDEX_URL}" torch \
     && python -m pip install -r requirements.txt
 
 COPY --chown=rag:rag app ./app
